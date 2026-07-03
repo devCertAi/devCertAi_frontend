@@ -1,0 +1,209 @@
+@import './styles/theme.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color .4s ease, color .4s ease;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--color-bg); }
+  ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0px 1000px var(--color-bg) inset;
+    -webkit-text-fill-color: var(--color-text);
+    caret-color: var(--color-text);
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-primary) 30%, transparent);
+    color: var(--color-text);
+  }
+}
+
+@layer utilities {
+  .gradient-text {
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--color-border);
+  }
+
+  .super-glow {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .6s ease;
+  }
+  html[data-theme="super"] .super-glow {
+    opacity: 1;
+    background: conic-gradient(from 0deg at 50% 0%, rgba(157,140,255,.18), rgba(77,239,255,.12), rgba(216,140,255,.18), rgba(94,255,184,.10), rgba(157,140,255,.18));
+    animation: hueSwirl 16s linear infinite;
+    filter: blur(60px);
+  }
+  @keyframes hueSwirl { to { transform: rotate(360deg); } }
+
+  /* ── Hero top glow — the soft teal/violet halo from the reference design ── */
+  .hero-glow {
+    position: fixed;
+    top: -22%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1100px;
+    height: 700px;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center,
+      color-mix(in srgb, var(--color-primary) 13%, transparent),
+      color-mix(in srgb, var(--color-secondary) 8%, transparent) 45%,
+      transparent 72%);
+    filter: blur(40px);
+  }
+  @media (max-width: 880px) {
+    .hero-glow { width: 760px; height: 520px; }
+  }
+
+  .bg-grid-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(var(--color-grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--color-grid-line) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent 75%);
+  }
+
+  /* ── Scroll-reactive glow backdrop ── */
+  .scroll-glow-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .scroll-glow-bg .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    will-change: transform, opacity;
+    transition: background .6s ease;
+  }
+
+  /* ── Ambient glow applied to cards ── */
+  .glow-card {
+    position: relative;
+    isolation: isolate;
+    transition: transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s ease, border-color .35s ease;
+  }
+  .glow-card::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, var(--glow-card-color, var(--color-primary)), transparent 60%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity .35s ease;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .glow-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: 0 0 0 0 var(--glow-card-color, var(--color-primary));
+    opacity: 0;
+    transition: opacity .35s ease, box-shadow .35s ease;
+    pointer-events: none;
+    z-index: -1;
+  }
+  .glow-card:hover::before,
+  .glow-card.glow-active::before { opacity: .9; }
+  .glow-card:hover::after,
+  .glow-card.glow-active::after {
+    opacity: 1;
+    box-shadow: 0 0 36px 2px color-mix(in srgb, var(--glow-card-color, var(--color-primary)) 45%, transparent);
+  }
+
+  /* ── Idle float for the hero domain stack (paused on hover/tilt) ── */
+  @keyframes heroStackFloat {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-12px); }
+  }
+  .hero-stack-arena {
+    animation: heroStackFloat 6.5s ease-in-out infinite;
+  }
+
+  /* ── Floating animation for the hero 3D object ── */
+  @keyframes floatY {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-18px); }
+  }
+  @keyframes floatGlow {
+    0%, 100% { transform: scale(1) translate(0, 0); opacity: .65; }
+    50% { transform: scale(1.12) translate(2%, -3%); opacity: .9; }
+  }
+  @keyframes spinSlow {
+    to { transform: rotateY(360deg); }
+  }
+
+  /* ── Vertical flip card (3D) ── */
+  .flip-card-scene {
+    perspective: 1400px;
+  }
+  .flip-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform .9s cubic-bezier(.45,.05,.15,1);
+  }
+  .flip-card-inner.is-flipped {
+    transform: rotateY(180deg);
+  }
+  .flip-card-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .flip-card-back {
+    transform: rotateY(180deg);
+  }
+}
