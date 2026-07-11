@@ -9,7 +9,7 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
     <div className="text-center py-8"><Activity size={24} className="text-[var(--color-muted)] mx-auto mb-2 opacity-40" /><p className="text-sm text-[var(--color-muted)]">No activity yet</p></div>
   )
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-1">
       {items.map((item) => (
         <div key={item.id} className="flex gap-3 items-start">
           <div className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full mt-2 flex-shrink-0" />

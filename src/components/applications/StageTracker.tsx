@@ -18,6 +18,10 @@ interface Step {
 export function StageTracker({ application }: StageTrackerProps) {
   const hasAssignment = !!application.jobPosting?.assignmentBrief
   const examEnabled = !!application.jobPosting?.examEnabled
+  // FIX: 'exam_phase2_sent' / 'exam_phase2_completed' were never included in
+  // any step's `stages` list, so once an application reached those stages
+  // `currentStepIndex` came back -1 and the whole tracker looked "undone".
+  const examPhase2 = !!application.jobPosting?.examPhase2
   const [messages, setMessages] = useState<any[]>([])
 
   useEffect(() => {
@@ -35,7 +39,9 @@ export function StageTracker({ application }: StageTrackerProps) {
     steps.push({ key: 'project_evaluated', label: 'Project Review', stages: ['project_evaluated'] })
   }
   if (examEnabled) {
-    steps.push({ key: 'exam', label: 'Assessment', stages: ['exam_sent', 'exam_completed'] })
+    const examStages = ['exam_sent', 'exam_completed']
+    if (examPhase2) examStages.push('exam_phase2_sent', 'exam_phase2_completed')
+    steps.push({ key: 'exam', label: 'Assessment', stages: examStages })
   }
   steps.push({ key: 'ranked', label: 'Result', stages: ['ranked'] })
 

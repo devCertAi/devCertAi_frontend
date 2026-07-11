@@ -11,10 +11,21 @@ import { useState } from 'react'
 
 interface CertificateCardProps { cert: Certificate; onUpdate?: () => void }
 
+// Shared certificate design tokens — per-level metal palette. Keep this in
+// sync with backend/src/services/certificateService.js LEVEL_METAL so the
+// on-screen preview and the downloaded PDF always match.
+const LEVEL_METAL: Record<string, { stops: string[]; glow: string; sealFrom: string; sealMid: string; sealTo: string }> = {
+  Advanced:     { stops: ['#FFF6D8', '#F0D278', '#C9A227', '#8B6914', '#F0D278', '#FFF6D8'], glow: 'rgba(201,162,39,0.45)', sealFrom: '#fcd34d', sealMid: '#d97706', sealTo: '#92400e' },
+  Intermediate: { stops: ['#FFFFFF', '#D6DEEA', '#8593AC', '#4A5670', '#D6DEEA', '#FFFFFF'], glow: 'rgba(91,107,140,0.4)',  sealFrom: '#e2e8f0', sealMid: '#64748b', sealTo: '#334155' },
+  Beginner:     { stops: ['#F6DCC0', '#DBA976', '#B87333', '#7A4B1F', '#DBA976', '#F6DCC0'], glow: 'rgba(184,115,51,0.4)',  sealFrom: '#f0b27a', sealMid: '#b87333', sealTo: '#7a4b1f' },
+}
+
+// Small alias so the compact dashboard card (which only needs a single
+// accent colour) doesn't have to reach into LEVEL_METAL.
 const LEVEL_COLORS: Record<string, { primary: string; glow: string }> = {
-  Advanced:     { primary: '#FFD700', glow: 'rgba(255,215,0,0.15)' },
-  Intermediate: { primary: '#C0C0C0', glow: 'rgba(192,192,192,0.15)' },
-  Beginner:     { primary: '#CD7F32', glow: 'rgba(205,127,50,0.15)' },
+  Advanced:     { primary: '#D4A017', glow: 'rgba(212,160,23,0.28)' },
+  Intermediate: { primary: '#5B6B8C', glow: 'rgba(91,107,140,0.24)' },
+  Beginner:     { primary: '#B0703A', glow: 'rgba(176,112,58,0.24)' },
 }
 
 function CertificatePreviewModal({ cert, displayDomain, onClose }: {
@@ -24,40 +35,41 @@ function CertificatePreviewModal({ cert, displayDomain, onClose }: {
 }) {
   const issuedDate = formatDate(cert.createdAt)
   const typeLabel = cert.type === 'project_eval'
-    ? 'ProjCert · Project Evaluation Certificate'
-    : 'SkillCert · Verified Skill Certificate'
-  const holderName = (cert as any).user?.username || (cert as any).name || 'Certificate Holder'
+    ? 'ProjCert — Project Evaluation Certificate'
+    : cert.type === 'combo_cert'
+      ? 'ComboCert — Phase 1 + Phase 2 Combined Certificate'
+      : 'SkillCert — Verified Skill Certificate'
+  // FIX: this previously read `user?.username` (the login handle, e.g.
+  // "john123") *before* the real name, and its fallback `(cert as any).name`
+  // doesn't exist on the Certificate type at all — so the certificate almost
+  // always rendered the username, or silently fell through to a generic
+  // placeholder. The real name lives at `cert.user?.name` (see Verify.tsx),
+  // with `cert.userName` as a fallback for endpoints that flatten it.
+  const holderName = cert.user?.name || (cert as any).userName || 'Certificate Holder'
+  const comboMeta = cert.type === 'combo_cert' ? (cert as any).metadata : null
+  const projectTitle = (cert as any).project?.title as string | undefined
+  const difficultyLabel = cert.difficulty
+    ? String(cert.difficulty).charAt(0).toUpperCase() + String(cert.difficulty).slice(1)
+    : null
 
-  // Per-level accent colours (gold palette stays consistent; hue shifts slightly per tier)
-  const LEVEL_ACCENT: Record<string, { primary: string; dim: string; faint: string }> = {
-    Advanced:     { primary: '#D4A017', dim: '#8a6010', faint: '#3a2808' },
-    Intermediate: { primary: '#B0B8C8', dim: '#606878', faint: '#282C34' },
-    Beginner:     { primary: '#C07830', dim: '#805020', faint: '#301808' },
-  }
-  const ac = LEVEL_ACCENT[cert.level] || LEVEL_ACCENT.Advanced
+  const metal = LEVEL_METAL[cert.level] || LEVEL_METAL.Advanced
 
-  const cornerSVG = `
-    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'>
-      <path d='M2 2 L62 2 L62 10' stroke='${ac.primary}' stroke-width='1.2' fill='none'/>
-      <path d='M2 2 L2 62 L10 62' stroke='${ac.primary}' stroke-width='1.2' fill='none'/>
-      <path d='M10 10 L54 10 L54 18' stroke='${ac.dim}' stroke-width='0.6' fill='none'/>
-      <path d='M10 10 L10 54 L18 54' stroke='${ac.dim}' stroke-width='0.6' fill='none'/>
-      <circle cx='10' cy='10' r='2' fill='${ac.primary}'/>
-      <rect x='18' y='18' width='6' height='6' fill='${ac.faint}' stroke='${ac.dim}' stroke-width='0.5'/>
-    </svg>`
-
-  const cornerB64 = btoa(cornerSVG)
+  const extraLine = comboMeta
+    ? `Phase 1: ${comboMeta.phase1Score ?? '-'}/100 &middot; Phase 2: ${comboMeta.phase2Score ?? '-'}/100`
+    : projectTitle
+      ? `Project: ${projectTitle}`
+      : ''
 
   const html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
   width:1123px; height:794px;
-  background:#080604;
+  background:#E7E9EF;
   display:flex; align-items:center; justify-content:center;
   overflow:hidden;
   font-family:'EB Garamond', Georgia, serif;
@@ -65,295 +77,232 @@ body {
 
 .page {
   width:1060px; height:740px;
-  background:
-    radial-gradient(ellipse 70% 55% at 18% 25%, rgba(55,38,8,0.55) 0%, transparent 65%),
-    radial-gradient(ellipse 55% 70% at 82% 75%, rgba(45,30,5,0.45) 0%, transparent 65%),
-    radial-gradient(ellipse 90% 90% at 50% 50%, rgba(18,12,4,0.3) 0%, transparent 100%),
-    linear-gradient(155deg, #100d07 0%, #0c0a05 45%, #0f0c07 100%);
-  border:1.5px solid ${ac.primary}55;
+  background: #fdfcfa;
+  border: 1px solid #cbd5e1;
   position:relative;
   overflow:hidden;
   box-shadow:
-    0 0 0 6px #080604,
-    0 0 0 7.5px ${ac.primary}40,
-    0 0 80px rgba(180,130,20,0.12);
+    0 0 0 8px #ffffff,
+    0 0 0 9px #cbd5e1,
+    0 25px 70px rgba(30,41,59,0.15),
+    0 4px 18px rgba(30,41,59,0.10);
 }
 
-/* Second inner border */
-.inner-frame {
-  position:absolute; inset:12px;
-  border:0.5px solid ${ac.dim}60;
-  pointer-events:none;
-}
-.inner-frame-2 {
-  position:absolute; inset:16px;
-  border:0.5px solid ${ac.faint}cc;
-  pointer-events:none;
-}
-
-/* Corners */
-.corner {
-  position:absolute; width:64px; height:64px;
-  background-image:url('data:image/svg+xml;base64,${cornerB64}');
-  background-size:contain; background-repeat:no-repeat;
-}
-.tl { top:0; left:0; }
-.tr { top:0; right:0; transform:scaleX(-1); }
-.bl { bottom:0; left:0; transform:scaleY(-1); }
-.br { bottom:0; right:0; transform:scale(-1,-1); }
-
-/* Side ornament lines */
-.side-ornament {
-  position:absolute;
-  background:linear-gradient(90deg, transparent, ${ac.dim}50, transparent);
-  height:0.5px;
-}
-.side-ornament.top    { top:32px; left:80px; right:80px; }
-.side-ornament.bottom { bottom:32px; left:80px; right:80px; }
-
-/* Watermark */
-.watermark {
-  position:absolute; inset:0;
-  display:flex; align-items:center; justify-content:center;
-  pointer-events:none;
-  font-family:'Cinzel', serif;
-  font-size:260px; font-weight:600;
-  color:rgba(120,85,15,0.035);
-  letter-spacing:-12px; line-height:1;
+/* The dark navy ribbon running down the left side */
+.vertical-ribbon {
+  position: absolute;
+  top: 0;
+  left: 80px;
+  width: 45px;
+  height: 100%;
+  background-color: #0f172a;
+  z-index: 1;
 }
 
-/* Content layout */
+/* Metallic badge overlapping the ribbon — colour follows certificate level */
+.gold-seal {
+  position: absolute;
+  top: 110px;
+  left: 52px;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, ${metal.sealFrom} 0%, ${metal.sealMid} 70%, ${metal.sealTo} 100%);
+  border-radius: 50%;
+  border: 4px solid #0f172a;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gold-seal::after {
+  content: '';
+  width: 76px;
+  height: 76px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  position: absolute;
+}
+
 .content {
   position:absolute;
-  inset:44px 60px 44px 60px;
-  display:flex; flex-direction:column;
-  align-items:center; justify-content:center;
-  gap:0;
+  inset: 0;
+  padding-left: 200px;
+  padding-right: 80px;
+  display:flex;
+  flex-direction:column;
+  justify-content: center;
+  align-items: flex-start;
 }
 
-/* Top brand row */
-.brand-row {
-  display:flex; align-items:center; gap:14px;
-  margin-bottom:10px;
-}
-.brand-line {
-  width:90px; height:0.5px;
-  background:linear-gradient(90deg, transparent, ${ac.primary}70);
-}
-.brand-line.r { background:linear-gradient(90deg, ${ac.primary}70, transparent); }
 .brand-name {
-  font-family:'Cinzel', serif; font-size:11px;
-  letter-spacing:6px; color:${ac.primary};
-  text-transform:uppercase;
+  position: absolute;
+  top: 60px;
+  right: 80px;
+  font-family: 'Cinzel', serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #0f172a;
 }
 
-/* Type label */
+.brand-name span { color: #d97706; }
+
+.main-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 76px;
+  font-weight: 400;
+  font-style: italic;
+  color: #0f172a;
+  line-height: 1;
+  margin-bottom: -3px;
+}
+
+.sub-title-box {
+  background-color: #0f172a;
+  color: #ffffff;
+  font-family: 'Cinzel', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 5px;
+  padding: 5px 20px 4px 24px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: inline-block;
+}
+
 .type-label {
-  font-family:'Cinzel', serif; font-size:8px;
-  letter-spacing:4px; color:${ac.dim};
-  text-transform:uppercase; margin-bottom:18px;
+  font-family: 'Cinzel', sans-serif;
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 26px;
 }
 
-/* Divider with diamond */
-.divider {
-  display:flex; align-items:center; gap:10px;
-  width:100%; max-width:520px; margin-bottom:14px;
-}
-.div-line {
-  flex:1; height:0.5px;
-  background:linear-gradient(90deg, transparent, ${ac.dim}80, transparent);
-}
-.div-diamond {
-  width:5px; height:5px; flex-shrink:0;
-  background:${ac.primary}; transform:rotate(45deg);
-}
-.div-dot {
-  width:3px; height:3px; flex-shrink:0;
-  background:${ac.dim}; border-radius:50%;
-}
-
-/* Text content */
 .certifies-that {
-  font-family:'EB Garamond', serif; font-style:italic;
-  font-size:14px; color:${ac.dim};
-  letter-spacing:2px; margin-bottom:6px;
+  font-family: 'EB Garamond', serif;
+  font-size: 19px;
+  color: #475569;
+  margin-bottom: 12px;
 }
+
 .holder-name {
-  font-family:'Playfair Display', serif;
-  font-size:52px; font-weight:600;
-  color:${ac.primary};
-  letter-spacing:0.5px; line-height:1;
-  margin-bottom:14px;
-  text-shadow: 0 1px 20px rgba(180,130,20,0.18);
-}
-.has-demonstrated {
-  font-family:'EB Garamond', serif; font-style:italic;
-  font-size:13px; color:${ac.dim};
-  letter-spacing:1.5px; margin-bottom:8px;
-}
-.level-badge {
-  font-family:'Cinzel', serif; font-size:9.5px;
-  letter-spacing:5px; color:${ac.primary};
-  border:0.5px solid ${ac.dim}80;
-  padding:5px 20px; margin-bottom:8px;
-  text-transform:uppercase;
-}
-.proficiency-in {
-  font-family:'EB Garamond', serif; font-style:italic;
-  font-size:13px; color:${ac.dim};
-  letter-spacing:1px; margin-bottom:10px;
-}
-.domain-text {
-  font-family:'Playfair Display', serif;
-  font-size:24px; font-weight:400; font-style:italic;
-  color:${ac.primary}cc; letter-spacing:0.5px;
-  margin-bottom:18px;
+  font-family: 'Playfair Display', serif;
+  font-size: 38px;
+  font-weight: 700;
+  color: #0f172a;
+  border-bottom: 1px solid #94a3b8;
+  padding-bottom: 4px;
+  margin-bottom: 20px;
+  width: 100%;
+  max-width: 550px;
 }
 
-/* Meta row */
-.meta-row {
-  display:flex; gap:56px; align-items:flex-start;
-  margin-bottom:20px;
+.details-text {
+  font-family: 'EB Garamond', serif;
+  font-size: 19px;
+  line-height: 1.6;
+  color: #475569;
+  margin-bottom: 8px;
+  max-width: 650px;
 }
-.meta-item { text-align:center; }
+
+.details-text strong {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.extra-line {
+  font-family: 'EB Garamond', serif;
+  font-style: italic;
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 34px;
+}
+
+.bottom-meta {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.meta-block { display: flex; flex-direction: column; gap: 4px; }
+
 .meta-lbl {
-  font-family:'Cinzel', serif; font-size:7px;
-  letter-spacing:3px; color:${ac.dim}; margin-bottom:5px;
-  text-transform:uppercase;
+  font-family: 'Cinzel', sans-serif;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #94a3b8;
+  text-transform: uppercase;
 }
+
 .meta-val {
-  font-family:'Playfair Display', serif;
-  font-size:17px; font-weight:400; color:${ac.primary};
-}
-.meta-sep {
-  width:36px; height:0.5px;
-  background:${ac.faint}cc;
-  margin:6px auto 0;
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
-/* Bottom bar */
-.bottom-bar {
-  display:flex; align-items:flex-end;
-  justify-content:space-between; width:100%;
-  padding:0 4px;
-}
-.verify-block { text-align:left; }
-.v-lbl {
-  font-family:'Cinzel', serif; font-size:7px;
-  letter-spacing:2.5px; color:${ac.faint}ff;
-  text-transform:uppercase; margin-bottom:3px;
-}
 .v-id {
-  font-family:'Courier New', monospace; font-size:9.5px;
-  color:${ac.dim}; letter-spacing:0.5px;
-}
-
-/* Central emblem */
-.emblem { width:58px; height:58px; flex-shrink:0; }
-
-/* Signature block */
-.sig-block { text-align:right; }
-.sig-line {
-  width:130px; height:0.5px;
-  background:${ac.dim}60;
-  margin:0 0 5px auto;
-}
-.sig-name {
-  font-family:'Playfair Display', serif; font-style:italic;
-  font-size:14px; color:${ac.dim};
-}
-.sig-title {
-  font-family:'Cinzel', serif; font-size:7px;
-  letter-spacing:2px; color:${ac.faint}ff;
-  margin-top:3px; text-transform:uppercase;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #475569;
+  font-weight: bold;
 }
 </style>
 </head>
 <body>
 <div class="page">
-  <div class="inner-frame"></div>
-  <div class="inner-frame-2"></div>
-  <div class="corner tl"></div>
-  <div class="corner tr"></div>
-  <div class="corner bl"></div>
-  <div class="corner br"></div>
-  <div class="side-ornament top"></div>
-  <div class="side-ornament bottom"></div>
-  <div class="watermark">DC</div>
+  <div class="vertical-ribbon"></div>
+  <div class="gold-seal">
+     <svg width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.25">
+       <path d="M6 3c0 6 3 10 6 12m6-12c0 6-3 10-6 12" />
+       <path d="M4 6c2 0 3.5 1 4 2M4 10c2 0 3.5 1 4 2m-4 4c2 0 3.5 1 4 2" />
+       <path d="M20 6c-2 0-3.5 1-4 2m4 2c-2 0-3.5 1-4 2m4 4c-2 0-3.5 1-4 2" />
+       <circle cx="12" cy="16" r="1.5" fill="#ffffff"/>
+     </svg>
+  </div>
 
   <div class="content">
-    <div class="brand-row">
-      <div class="brand-line"></div>
-      <div class="brand-name">DevCert</div>
-      <div class="brand-line r"></div>
-    </div>
+    <div class="brand-name"><span>DevCert</span></div>
+
+    <div class="main-title">Certificate</div>
+    <div class="sub-title-box">Of Completion</div>
     <div class="type-label">${typeLabel}</div>
 
-    <div class="divider">
-      <div class="div-line"></div>
-      <div class="div-dot"></div>
-      <div class="div-diamond"></div>
-      <div class="div-dot"></div>
-      <div class="div-line"></div>
-    </div>
-
-    <div class="certifies-that">This is to certify that</div>
+    <div class="certifies-that">This certificate is proudly presented to</div>
     <div class="holder-name">${holderName}</div>
-    <div class="has-demonstrated">has successfully demonstrated</div>
-    <div class="level-badge">${cert.level} Proficiency</div>
-    <div class="proficiency-in">in the discipline of</div>
-    <div class="domain-text">${displayDomain}</div>
 
-    <div class="divider" style="margin-bottom:16px;">
-      <div class="div-line"></div>
-      <div class="div-dot"></div>
-      <div class="div-diamond"></div>
-      <div class="div-dot"></div>
-      <div class="div-line"></div>
+    <div class="details-text">
+      for successfully demonstrating <strong>${cert.level}</strong> level proficiency in
+      the framework environment discipline of <strong>${displayDomain}</strong> on project implementation evaluations.
     </div>
+    ${extraLine ? `<div class="extra-line">${extraLine}</div>` : '<div style="margin-bottom:34px"></div>'}
 
-    <div class="meta-row">
-      <div class="meta-item">
-        <div class="meta-lbl">Score Achieved</div>
-        <div class="meta-val">${cert.score}/100</div>
-        <div class="meta-sep"></div>
+    <div class="bottom-meta">
+      <div class="meta-block">
+        <span class="meta-lbl">Date Issued</span>
+        <span class="meta-val">${issuedDate}</span>
       </div>
-      <div class="meta-item">
-        <div class="meta-lbl">Level</div>
-        <div class="meta-val">${cert.level}</div>
-        <div class="meta-sep"></div>
+      <div class="meta-block" style="align-items: center;">
+        <span class="meta-lbl">Score Achieved</span>
+        <span class="meta-val">${cert.score} / 100</span>
       </div>
-      <div class="meta-item">
-        <div class="meta-lbl">Date Issued</div>
-        <div class="meta-val">${issuedDate}</div>
-        <div class="meta-sep"></div>
-      </div>
-    </div>
-
-    <div class="bottom-bar">
-      <div class="verify-block">
-        <div class="v-lbl">Verify at</div>
-        <div class="v-id">devcert.io/verify/${cert.verificationId}</div>
-        <div class="v-lbl" style="margin-top:7px;">Certificate ID</div>
-        <div class="v-id">${cert.verificationId}</div>
-      </div>
-
-      <svg class="emblem" viewBox="0 0 58 58" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="29" cy="29" r="27" stroke="${ac.primary}" stroke-width="0.8" opacity="0.7"/>
-        <circle cx="29" cy="29" r="22" stroke="${ac.dim}" stroke-width="0.5" opacity="0.6"/>
-        <circle cx="29" cy="29" r="10" stroke="${ac.primary}" stroke-width="0.8" opacity="0.5"/>
-        <path d="M29 4 L30.5 16 L41 8 L34 19 L46 21 L35 26 L40 37 L29 31 L18 37 L23 26 L12 21 L24 19 L17 8 L27.5 16 Z"
-              fill="${ac.primary}" opacity="0.15"/>
-        <path d="M29 9 L30 17.5 L38 12.5 L33 20 L42 22 L33.5 26 L37.5 34 L29 29.5 L20.5 34 L24.5 26 L16 22 L25 20 L20 12.5 L28 17.5 Z"
-              stroke="${ac.primary}" stroke-width="0.4" fill="none" opacity="0.3"/>
-        <text x="29" y="32" text-anchor="middle"
-              font-family="Cinzel,serif" font-size="8" fill="${ac.primary}" font-weight="600" opacity="0.9">DC</text>
-      </svg>
-
-      <div class="sig-block">
-        <div class="sig-line"></div>
-        <div class="sig-name">Rajan Mehta</div>
-        <div class="sig-title">Director of Certification</div>
+      ${difficultyLabel ? `
+      <div class="meta-block" style="align-items: center;">
+        <span class="meta-lbl">Difficulty</span>
+        <span class="meta-val">${difficultyLabel}</span>
+      </div>` : ''}
+      <div class="meta-block" style="text-align: right; align-items: flex-end;">
+        <span class="meta-lbl">Certificate Number</span>
+        <span class="v-id">${cert.verificationId || '0000'}</span>
       </div>
     </div>
   </div>
@@ -419,7 +368,7 @@ body {
 
           {/* Actions below preview */}
           <div className="flex justify-center gap-3 mt-4">
-            
+
             <a  href={`/certificate/${cert.verificationId}`}
               target="_blank"
               rel="noopener noreferrer"
@@ -500,15 +449,20 @@ export default function CertificateCard({ cert, onUpdate }: CertificateCardProps
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono text-[var(--color-muted)] bg-[var(--color-surface2)] px-2 py-1 rounded-lg">
-                {cert.type === 'project_eval' ? 'ProjCert' : 'SkillCert'}
+                {cert.type === 'project_eval' ? 'ProjCert' : cert.type === 'combo_cert' ? 'ComboCert' : 'SkillCert'}
               </span>
               <ExternalLink size={12} className="text-[var(--color-muted)]" />
             </div>
           </div>
           <h3 className="font-semibold text-[var(--color-text)] capitalize mb-1">{displayDomain}</h3>
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             <span className="text-sm px-2 py-0.5 rounded-full font-medium" style={{ color, backgroundColor: `${color}15`, border: `1px solid ${color}30` }}>{cert.level}</span>
             <span className="text-sm font-bold" style={{ color }}>{cert.score}/100</span>
+            {cert.difficulty && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium text-[var(--color-muted)] bg-[var(--color-surface2)] border border-[var(--color-border)] capitalize">
+                {cert.difficulty}
+              </span>
+            )}
           </div>
           <p className="text-xs text-[var(--color-muted)]">Issued {formatDate(cert.createdAt)}</p>
         </div>

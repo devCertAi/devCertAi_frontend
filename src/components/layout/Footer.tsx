@@ -35,7 +35,7 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text)' }}>Company</h4>
             <ul className="space-y-2">
-              {[['#', 'About'], ['#', 'Blog'], ['/pricing', 'Pricing'], ['#', 'Contact']].map(([href, label], i) => (
+              {[['/about', 'About'], ['/pricing', 'Pricing'], ['/contact', 'Contact']].map(([href, label], i) => (
                 <li key={i}>
                   <Link to={href} className="text-sm transition-colors hover:opacity-80" style={{ color: 'var(--color-muted)' }}>{label}</Link>
                 </li>
@@ -45,7 +45,11 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text)' }}>Legal</h4>
             <ul className="space-y-2">
-              {[['#', 'Privacy Policy'], ['#', 'Terms of Service'], ['#', 'Cookie Policy']].map(([href, label], i) => (
+              {[
+                ['/privacy-policy', 'Privacy Policy'],
+                ['/terms-of-service', 'Terms of Service'],
+                ['/cookie-policy', 'Cookie Policy'],
+              ].map(([href, label], i) => (
                 <li key={i}>
                   <Link to={href} className="text-sm transition-colors hover:opacity-80" style={{ color: 'var(--color-muted)' }}>{label}</Link>
                 </li>

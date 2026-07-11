@@ -1,16 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Monitor, Server, Layers, Smartphone, PieChart, Settings, LucideIcon } from 'lucide-react'
+import { Monitor } from 'lucide-react'
 import { DOMAINS } from '@/lib/constants'
-
-const DOMAIN_ICONS: Record<string, LucideIcon> = {
-  frontend: Monitor,
-  backend: Server,
-  fullstack: Layers,
-  mobile: Smartphone,
-  data: PieChart,
-  devops: Settings,
-}
 
 type Role = 'front' | 'mid' | 'back'
 
@@ -239,7 +230,7 @@ export function HeroDomainStack() {
             {order.map((domainIdx, slotPos) => {
               const role: Role = (['front', 'mid', 'back'] as Role[])[slotPos]
               const domain = DOMAINS[domainIdx]
-              const Icon = DOMAIN_ICONS[domain.id] || Monitor
+              const Icon = domain.icon || Monitor
               const isFront = role === 'front'
               const metrics = subMetrics(domain.avgScore)
 

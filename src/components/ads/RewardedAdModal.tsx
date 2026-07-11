@@ -1,17 +1,3 @@
-/**
- * RewardedAdModal.tsx — "Watch an ad, earn a credit"
- *
- * Shows an ad for a fixed duration (can't be skipped early), then lets the
- * user claim a bonus credit. The countdown is just UX — the actual grant is
- * server-side rate-limited (see creditService.grantAdRewardCredit), so this
- * can't be abused by messing with client timers.
- *
- * Usage:
- *   const [open, setOpen] = useState(false)
- *   <RewardedAdButton bucket="project" onRewarded={() => refetchCredits()} />
- *   // or render <RewardedAdModal open={open} onClose={...} bucket="project" onRewarded={...} />
- *   // directly if you want your own trigger button.
- */
 
 import { useEffect, useState } from 'react'
 import { Gift, Loader2, PlayCircle } from 'lucide-react'

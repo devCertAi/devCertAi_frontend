@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { AdInFeed } from "@/components/ads/AdInFeed";
+import { AdBanner } from "@/components/ads/AdBanner";
 import { formatDate, getScoreColor } from "@/lib/utils";
 import api from "@/services/api";
 import toast from "react-hot-toast";
@@ -85,6 +86,8 @@ export default function ProjectList() {
   />
 </div>
 
+        <div className="flex justify-center mb-6"><AdBanner slot="topBanner" size="banner" className="w-full max-w-3xl" /></div>
+
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[1, 2, 3, 4].map((i) => (
@@ -97,6 +100,7 @@ export default function ProjectList() {
               {search ? "No projects match your search" : "You haven't submitted any projects yet"}
             </p>
             {!search && <Link to="/submit"><Button>Submit First Project</Button></Link>}
+            <div className="flex justify-center mt-8"><AdInFeed /></div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

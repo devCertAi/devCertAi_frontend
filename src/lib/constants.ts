@@ -1,8 +1,20 @@
-export const DOMAINS = [
+import type { LucideIcon } from 'lucide-react'
+import { Monitor, Server, Rocket, Smartphone, PieChart, Wrench, Code2 } from 'lucide-react'
+
+export interface Domain {
+  id: string
+  name: string
+  icon: LucideIcon
+  description: string
+  color: string
+  avgScore: number
+}
+
+export const DOMAINS: Domain[] = [
   {
     id: 'frontend',
     name: 'Frontend',
-    icon: '🎨',
+    icon: Monitor,
     description: 'React, Vue, Angular, CSS, HTML',
     color: 'var(--color-primary)',
     avgScore: 74,
@@ -10,7 +22,7 @@ export const DOMAINS = [
   {
     id: 'backend',
     name: 'Backend',
-    icon: '⚙️',
+    icon: Server,
     description: 'Node.js, Python, Java, Go, APIs',
     color: 'var(--color-secondary)',
     avgScore: 71,
@@ -18,7 +30,7 @@ export const DOMAINS = [
   {
     id: 'fullstack',
     name: 'Full Stack',
-    icon: '🚀',
+    icon: Rocket,
     description: 'End-to-end web applications',
     color: 'var(--color-success)',
     avgScore: 68,
@@ -26,7 +38,7 @@ export const DOMAINS = [
   {
     id: 'mobile',
     name: 'Mobile',
-    icon: '📱',
+    icon: Smartphone,
     description: 'React Native, Flutter, Swift, Kotlin',
     color: 'var(--color-warning)',
     avgScore: 72,
@@ -34,7 +46,7 @@ export const DOMAINS = [
   {
     id: 'data',
     name: 'Data Science',
-    icon: '📊',
+    icon: PieChart,
     description: 'ML, Python, TensorFlow, Analysis',
     color: 'var(--color-danger)',
     avgScore: 69,
@@ -42,10 +54,18 @@ export const DOMAINS = [
   {
     id: 'devops',
     name: 'DevOps',
-    icon: '🔧',
+    icon: Wrench,
     description: 'Docker, K8s, CI/CD, Cloud',
     color: 'var(--color-purple)',
     avgScore: 66,
+  },
+  {
+    id: 'programming',
+    name: 'Programming Languages',
+    icon: Code2,
+    description: 'Java, C/C++, Python, JavaScript',
+    color: 'var(--color-primary-d)',
+    avgScore: 70,
   },
 ]
 

@@ -113,7 +113,12 @@ const STAGE_INFO: Record<string, { label: string; icon: React.ReactNode; color: 
   project_evaluated:      { label: 'Project Reviewed',         icon: <Star size={16} />,         color: 'var(--color-success)' },
   exam_sent:              { label: 'Assessment Ready',         icon: <Clock size={16} />,        color: 'var(--color-warning)' },
   exam_completed:         { label: 'Assessment Submitted',     icon: <CheckCircle2 size={16} />, color: 'var(--color-success)' },
-  ranked:                 { label: 'Ranking Complete',         icon: <Star size={16} />,         color: 'var(--color-primary)' },
+  // FIX: these two stages are set by the backend (pipelineService.js) but were
+  // missing here entirely, so the tracker fell back to an undefined/blank row
+  // for any candidate who reached Phase 2.
+  exam_phase2_sent:       { label: 'Phase 2 Ready',             icon: <Clock size={16} />,        color: 'var(--color-warning)' },
+  exam_phase2_completed:  { label: 'Phase 2 Submitted',         icon: <CheckCircle2 size={16} />, color: 'var(--color-success)' },
+  ranked:                 { label: 'Ranking Complete',          icon: <Star size={16} />,         color: 'var(--color-primary)' },
 }
 
 function CompletenessBar({ pct }: { pct: number }) {
@@ -314,7 +319,10 @@ function ProfileGate({ completeness, posting }: { completeness: Completeness; po
 // ─── Already applied — status tracker ────────────────────────────────────────
 
 function AlreadyApplied({ app, posting }: { app: { id: string; stage: string; status: string }; posting: Posting }) {
-  const stages = ['applied', 'screened', 'assignment_sent', 'assignment_submitted', 'project_evaluated', 'exam_sent', 'exam_completed', 'ranked']
+  // FIX: 'exam_phase2_sent' / 'exam_phase2_completed' were missing from this
+  // hardcoded list, so stages.indexOf(app.stage) returned -1 for any candidate
+  // in Phase 2 — the whole progress tracker showed nothing as "done" or "current".
+  const stages = ['applied', 'screened', 'assignment_sent', 'assignment_submitted', 'project_evaluated', 'exam_sent', 'exam_completed', 'exam_phase2_sent', 'exam_phase2_completed', 'ranked']
   const currentIdx = stages.indexOf(app.stage)
   const isRejected = app.status === 'rejected'
   const isSelected = app.status === 'selected'
@@ -389,6 +397,18 @@ function AlreadyApplied({ app, posting }: { app: { id: string; stage: string; st
           </Card>
         )}
 
+        {/* FIX: no banner existed for this stage at all, so the only way to
+            reach Phase 2 was to already know to click into the application. */}
+        {app.stage === 'exam_phase2_sent' && (
+          <Card className="p-4 mb-4" style={{ borderColor: 'color-mix(in srgb, var(--color-warning) 30%, transparent)' }}>
+            <p className="text-sm font-semibold text-[var(--color-warning)] mb-1">Phase 2 assessment ready</p>
+            <p className="text-xs text-[var(--color-muted)] mb-3">Open the application to start your Phase 2 assessment.</p>
+            <Button size="sm" onClick={() => navigate(`/applications/${app.id}`)}>
+              Start Phase 2 <ArrowRight size={14} />
+            </Button>
+          </Card>
+        )}
+
         {app.stage === 'assignment_sent' && (
           <Card className="p-4 mb-4" style={{ borderColor: 'color-mix(in srgb, var(--color-warning) 30%, transparent)' }}>
             <p className="text-sm font-semibold text-[var(--color-warning)] mb-1">Assignment waiting</p>
@@ -417,6 +437,25 @@ function ApplyForm({ data, slug }: { data: PreflightData; slug: string }) {
   const [coverNote, setCoverNote] = useState('')
   const [cvFile, setCvFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [viewingCv, setViewingCv] = useState(false)
+
+  // Fetch the CV through our own API (auth header attaches automatically)
+  // and open it as a same-origin blob: URL, instead of navigating straight
+  // to the Cloudinary URL stored in prefill.cvUrl — which redirects to a
+  // different domain and can show "Failed to load PDF document".
+  const handleViewOwnCv = async () => {
+    setViewingCv(true)
+    try {
+      const res = await api.get('/users/me/cv', { responseType: 'blob' })
+      const blobUrl = URL.createObjectURL(res.data)
+      window.open(blobUrl, '_blank', 'noopener,noreferrer')
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
+    } catch {
+      toast.error("Couldn't load the CV right now")
+    } finally {
+      setViewingCv(false)
+    }
+  }
   const [showProfile, setShowProfile] = useState(false)
 
   const handleApply = async () => {
@@ -426,11 +465,27 @@ function ApplyForm({ data, slug }: { data: PreflightData; slug: string }) {
       fd.append('coverNote', coverNote)
       if (cvFile) fd.append('resume', cvFile)
 
-      await api.post(`/apply/${slug}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      await api.post(`/apply/${slug}`, fd, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60_000 })
       toast.success('Application submitted! We\'ll email you as you progress through the pipeline.')
-      navigate(`/apply/${slug}`)
+      // Navigating back to the same /apply/:slug route doesn't remount the
+      // page or refetch preflight data (slug is unchanged), so it silently
+      // re-rendered the same form as if nothing happened. Send the user
+      // somewhere that reflects the new state instead.
+      navigate('/dashboard')
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to submit application')
+      const message: string | undefined = err?.response?.data?.message
+      // A network hiccup (timeout, dropped connection) can make a request
+      // that actually SUCCEEDED on the server look like a failure here. If
+      // that happens and the person hits Submit again, the backend correctly
+      // reports "already applied" — showing that as a scary generic error
+      // would be misleading, since the application did go through. Treat it
+      // as success instead of asking them to retry.
+      if (message?.toLowerCase().includes('already applied')) {
+        toast.success('You\'ve already applied to this posting — redirecting to your dashboard.')
+        navigate('/dashboard')
+        return
+      }
+      toast.error(message || 'Failed to submit application')
     } finally {
       setSubmitting(false)
     }
@@ -599,7 +654,14 @@ function ApplyForm({ data, slug }: { data: PreflightData; slug: string }) {
           {prefill.cvUrl ? (
             <p className="text-xs text-[var(--color-muted)] mb-3">
               We'll use the resume from your profile.{' '}
-              <a href={prefill.cvUrl} target="_blank" rel="noreferrer" className="text-[var(--color-primary)] hover:underline">View it</a>
+              <button
+                type="button"
+                onClick={handleViewOwnCv}
+                disabled={viewingCv}
+                className="text-[var(--color-primary)] hover:underline disabled:opacity-50"
+              >
+                {viewingCv ? 'Loading…' : 'View it'}
+              </button>
               {' '}· Upload a new one below to override (optional).
             </p>
           ) : (
@@ -696,7 +758,10 @@ export default function ApplyPage() {
 
   useEffect(() => { loadPreflight() }, [loadPreflight])
 
-  if (isInitializing || publicLoading) {
+  // Public posting info doesn't depend on auth at all — render it (or the
+  // not-found state) the moment it arrives, instead of waiting on session
+  // restoration (isInitializing), which is a separate, slower network path.
+  if (publicLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Spinner className="w-8 h-8 text-[var(--color-primary)]" />
@@ -711,6 +776,15 @@ export default function ApplyPage() {
         <h2 className="text-lg font-bold text-[var(--color-text)]">Posting not found</h2>
         <p className="text-[var(--color-muted)] text-sm">This position may have been closed or the link is invalid.</p>
         <Link to="/" className="text-[var(--color-primary)] text-sm hover:underline">Back to home</Link>
+      </div>
+    )
+  }
+
+  // From here on we do need to know whether there's a restored session.
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner className="w-8 h-8 text-[var(--color-primary)]" />
       </div>
     )
   }

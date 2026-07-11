@@ -5,7 +5,8 @@ import api, {
   getAccessToken, clearAccessToken,
   getUserRole, setUserRole, clearUserRole,
   decodeRoleFromToken, currentRole,
-  getIsRefreshing, getRefreshPromise,
+  getIsRefreshing,
+  refreshAccessToken,
 } from "@/services/api";
 import { connectSocket, disconnectSocket, updateSocketToken } from "@/services/socket";
 
@@ -55,8 +56,17 @@ function msUntilRefresh(token: string): number {
   } catch { return 10 * 60 * 1000 }
 }
 
-function refreshEndpointFor(role: Role | null) {
-  return role === "recruiter" ? "/auth/recruiter/refresh" : "/auth/refresh";
+// Sends the person to login WITHOUT losing their place — e.g. if their
+// session expired while they were mid-exam, this brings them right back to
+// `/exam/attempt/:id` after they log back in instead of dumping them on the
+// dashboard. The exam page reloads the attempt (questions/answers/violation
+// count) straight from the server on mount, so nothing is lost except the
+// need to re-authenticate.
+function redirectToLogin(role: Role | null) {
+  const returnTo = window.location.pathname + window.location.search;
+  try { sessionStorage.setItem("sessionExpiredNotice", "1"); } catch {}
+  const loginPath = role === "recruiter" ? "/auth/recruiter-login" : "/auth/login";
+  window.location.href = `${loginPath}?next=${encodeURIComponent(returnTo)}`;
 }
 
 function meEndpointFor(role: Role | null) {
@@ -123,7 +133,6 @@ export const useAuthStore = create<AuthState>()(
 
         const mySession = sessionId;
         const delay = msUntilRefresh(token);
-        const endpoint = refreshEndpointFor(role);
 
         refreshTimeout = setTimeout(async () => {
           if (sessionId !== mySession) return; // a newer login/logout happened — stand down
@@ -131,15 +140,15 @@ export const useAuthStore = create<AuthState>()(
           if (!currentToken) return;
 
           try {
-            let newToken: string;
-
-            // If interceptor is already refreshing, reuse its promise — don't race
-            if (getIsRefreshing() && getRefreshPromise()) {
-              newToken = await getRefreshPromise()!;
-            } else {
-              const { data } = await api.post(endpoint);
-              newToken = data.data?.accessToken ?? data.accessToken;
-            }
+            // Always go through the single shared mutex in api.ts — never
+            // call the refresh endpoint directly here. If a reactive 401
+            // refresh (e.g. from a heartbeat ping) is already in flight,
+            // this reuses that SAME promise instead of firing a second
+            // concurrent /auth/refresh call. Two concurrent refresh calls
+            // racing on the same not-yet-rotated cookie is what used to
+            // cause the backend to treat the second one as token reuse and
+            // revoke the whole session — forcing a mid-exam logout.
+            const newToken = await refreshAccessToken(role);
 
             if (sessionId !== mySession) return; // stale by the time the request came back
             get().setToken(newToken);
@@ -154,7 +163,7 @@ export const useAuthStore = create<AuthState>()(
               clearUserRole();
               set({ user: null, isAuthenticated: false });
               disconnectSocket();
-              window.location.href = role === "recruiter" ? "/auth/recruiter-login" : "/auth/login";
+              redirectToLogin(role);
             }
           }
         }, delay);
@@ -249,13 +258,20 @@ export const useAuthStore = create<AuthState>()(
           // Role comes from the token itself first — the cached flag is
           // only a fallback for the rare case the token can't be decoded.
           const role: Role | null = decodeRoleFromToken(token) ?? (getUserRole() as Role | null);
+          const meEndpoint = meEndpointFor(role);
 
-          const refreshEndpoint = refreshEndpointFor(role);
-
-          let freshToken: string;
+          // Call /me directly instead of unconditionally refreshing first.
+          // If the stored access token is still valid, this is a single
+          // round trip. If it has expired, api's response interceptor
+          // already knows how to silently POST the refresh endpoint and
+          // retry this same request — so we still get a fresh token
+          // without duplicating that refresh call here. Previously every
+          // single page load (including opening a public /apply/:slug
+          // link while still signed in) paid for an explicit refresh
+          // *and* a /me call in series before the boot spinner cleared.
+          let meData: any;
           try {
-            const { data: refreshData } = await api.post(refreshEndpoint);
-            freshToken = refreshData.data.accessToken;
+            ;({ data: meData } = await api.get(meEndpoint));
           } catch {
             if (sessionId !== mySession) return; // a fresh login already took over — don't stomp it
             get().setToken(null);
@@ -264,14 +280,9 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
-          if (sessionId !== mySession) return; // superseded while the refresh call was in flight
-
-          get().setToken(freshToken);
-
-          const meEndpoint = meEndpointFor(role);
-          const { data: meData } = await api.get(meEndpoint);
-
           if (sessionId !== mySession) return; // superseded while the /me call was in flight
+
+          const currentToken = localStorage.getItem("accessToken") ?? token;
 
           const user: User =
             role === "recruiter"
@@ -279,7 +290,7 @@ export const useAuthStore = create<AuthState>()(
               : meData.data.user;
 
           set({ user, isAuthenticated: true });
-          connectSocket(freshToken, role ?? "user");
+          connectSocket(currentToken, role ?? "user");
           get().startRefreshTimer(role ?? "user");
         } catch {
           if (sessionId === mySession) {
@@ -315,11 +326,12 @@ document.addEventListener("visibilitychange", () => {
     const role = (decodeRoleFromToken(token) as Role) ?? (getUserRole() as Role) ?? "user";
     const mySession = sessionId;
     if (msLeft < 2 * 60 * 1000) {
-      // expired or < 2 min — refresh now
-      api.post(refreshEndpointFor(role))
-        .then(({ data }) => {
+      // expired or < 2 min — refresh now, through the same shared mutex as
+      // every other refresh trigger (see refreshAccessToken in api.ts) so
+      // this can never race a concurrent heartbeat-triggered refresh.
+      refreshAccessToken(role)
+        .then((newToken) => {
           if (sessionId !== mySession) return;
-          const newToken = data.data.accessToken;
           useAuthStore.getState().setToken(newToken);
           updateSocketToken(newToken);
           useAuthStore.getState().startRefreshTimer(role);
@@ -331,7 +343,7 @@ document.addEventListener("visibilitychange", () => {
             clearUserRole();
             useAuthStore.setState({ user: null, isAuthenticated: false });
             disconnectSocket();
-            window.location.href = role === "recruiter" ? "/auth/recruiter-login" : "/auth/login";
+            redirectToLogin(role);
           }
         });
     } else if (msLeft < 6 * 60 * 1000) {

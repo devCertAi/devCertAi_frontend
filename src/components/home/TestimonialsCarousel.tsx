@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Star } from "lucide-react";
 import axios from "axios";
 
@@ -52,52 +52,112 @@ const FALLBACK: Testimonial[] = [
     text: "The AI caught architectural issues I didn't even consider. My code quality has genuinely improved after reading the feedback.",
     stars: 5,
   },
+  {
+    id: "6",
+    name: "Ananya Reddy",
+    role: "Data Scientist",
+    text: "The evaluation caught a data leakage issue in my model pipeline that I'd genuinely missed. Worth the submission credit alone.",
+    stars: 5,
+  },
+  {
+    id: "7",
+    name: "Karan Malhotra",
+    role: "DevOps Engineer",
+    text: "This one actually looked at my Terraform setup and flagged a real misconfiguration, not just a generic quiz.",
+    stars: 4,
+  },
+  {
+    id: "8",
+    name: "Neha Kapoor",
+    role: "UI/UX Engineer",
+    text: "The feedback on component accessibility was more thorough than I expected from an AI reviewer.",
+    stars: 5,
+  },
 ];
 
-const AUTO_PLAY_MS = 5200;
 const avatarColors = ["#5EEAD4", "#8B7CF6", "#22C55E", "#FBBF54", "#EC4899"];
 
 function initials(name: string) {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
-function TypedText({ text, active }: { text: string; active: boolean }) {
-  const [shown, setShown] = useState("");
+/** Deterministic pseudo-random in [0,1), seeded by index so speeds stay stable across renders */
+function seeded(i: number) {
+  const x = Math.sin(i * 999.123) * 10000;
+  return x - Math.floor(x);
+}
 
-  useEffect(() => {
-    if (!active) return
-    setShown("")
-    let i = 0
-    let cancelled = false
-    function tick() {
-      if (cancelled) return
-      if (i > text.length) return
-      setShown(text.slice(0, i))
-      i++
-      setTimeout(tick, 16)
-    }
-    tick()
-    return () => { cancelled = true }
-  }, [text, active])
+function TestimonialCard({ t, colorIndex }: { t: Testimonial; colorIndex: number }) {
+  return (
+    <div
+      className="w-[270px] p-5 rounded-[16px] text-left shrink-0"
+      style={{
+        background: `linear-gradient(155deg, var(--color-surface), var(--color-surface2))`,
+        border: '1px solid var(--color-border)',
+        boxShadow: 'var(--shadow-panel)',
+      }}
+    >
+      <div className="flex items-center gap-3 mb-3">
+        <div
+          className="w-9 h-9 rounded-[9px] flex items-center justify-center font-bold text-[var(--color-inverse)] flex-shrink-0 text-[12px]"
+          style={{ background: avatarColors[colorIndex % avatarColors.length], fontFamily: "'Space Grotesk', sans-serif" }}
+        >
+          {initials(t.name)}
+        </div>
+        <div>
+          <div className="text-[13.5px] font-semibold" style={{ color: 'var(--color-text)', fontFamily: "'Space Grotesk', sans-serif" }}>{t.name}</div>
+          <div className="font-mono text-[10px]" style={{ color: 'var(--color-muted)' }}>{t.role}</div>
+        </div>
+      </div>
+      <div className="flex gap-[3px] mb-2.5" style={{ color: 'var(--color-warning)' }}>
+        {Array.from({ length: t.stars }).map((_, j) => (
+          <Star key={j} size={12} fill="currentColor" strokeWidth={0} />
+        ))}
+      </div>
+      <p className="text-[12.5px] leading-[1.6]" style={{ color: 'var(--color-text)' }}>{t.text}</p>
+    </div>
+  );
+}
+
+function MarqueeColumn({
+  items,
+  colIndex,
+}: {
+  items: Testimonial[];
+  colIndex: number;
+}) {
+  const goingUp = colIndex % 2 === 0; // alternate ladders: up, down, up, down
+  const duration = useMemo(() => 26 + seeded(colIndex + 10) * 12, [colIndex]); // 26s-38s, varied per column
+
+  // duplicate the column's items so the track can loop seamlessly at -50% / 0%
+  const looped = [...items, ...items];
 
   return (
-    <div className="text-[13.5px] leading-[1.65] min-h-[90px]" style={{ color: 'var(--color-text)' }}>
-      {shown}
-      {active && shown.length < text.length && (
-        <span className="inline-block w-1.5 h-[13px] ml-0.5 align-middle" style={{ background: 'var(--color-primary)', animation: 'blinkRCursor .9s step-end infinite' }} />
-      )}
+    <div className="marquee-col relative w-[270px] h-[600px] overflow-hidden">
+      <div
+        className={goingUp ? "marquee-track-up" : "marquee-track-down"}
+        style={{ ["--duration" as any]: `${duration}s` }}
+      >
+        <div className="flex flex-col gap-4 pb-4">
+          {looped.map((t, i) => (
+            <TestimonialCard key={`${t.id}-${i}`} t={t} colorIndex={colIndex + i} />
+          ))}
+        </div>
+      </div>
+      {/* fade edges so cards don't hard-clip at top/bottom */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: `linear-gradient(to bottom, var(--color-bg) 0%, transparent 10%, transparent 90%, var(--color-bg) 100%)`,
+        }}
+      />
     </div>
-  )
+  );
 }
 
 export function TestimonialsCarousel() {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loading, setLoading] = useState(true);
-  const [top, setTop] = useState(0); // index of front card
-  const [paused, setPaused] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const dragY = useRef(0);
-  const dragging = useRef(false);
 
   useEffect(() => {
     silentApi
@@ -112,94 +172,60 @@ export function TestimonialsCarousel() {
 
   const count = testimonials.length;
 
-  const advance = useCallback(() => {
-    setTop((t) => (count ? (t + 1) % count : 0));
-  }, [count]);
-
-  useEffect(() => {
-    if (paused || count === 0) return;
-    const id = setInterval(advance, AUTO_PLAY_MS);
-    return () => clearInterval(id);
-  }, [paused, count, advance]);
-
   if (loading || count === 0) {
     return (
-      <div className="relative w-[380px] h-[330px] mx-auto mt-[50px] animate-pulse rounded-[18px]" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }} />
+      <div className="flex gap-4 justify-center mt-[50px]">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="w-[270px] h-[600px] animate-pulse rounded-[16px]" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }} />
+        ))}
+      </div>
     );
   }
 
-  const onMouseDown = (e: React.MouseEvent) => { dragging.current = true; dragY.current = e.clientY }
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (!dragging.current) return
-    if (Math.abs(e.clientY - dragY.current) > 60) { dragging.current = false; advance() }
-  }
-  const onMouseUp = () => { dragging.current = false }
-  const onTouchStart = (e: React.TouchEvent) => { dragY.current = e.touches[0].clientY }
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (Math.abs(dragY.current - e.changedTouches[0].clientY) > 40) advance()
-  }
+  // distribute testimonials round-robin across 4 ladders
+  const columns: Testimonial[][] = [[], [], [], []];
+  testimonials.forEach((t, i) => columns[i % 4].push(t));
+  // guarantee every column has at least one card even with few testimonials
+  columns.forEach((col, i) => { if (col.length === 0) col.push(testimonials[i % count]); });
 
   return (
     <div className="text-center">
-      <div
-        ref={wrapRef}
-        className="relative w-[380px] h-[330px] mx-auto mt-[50px] cursor-grab active:cursor-grabbing select-none"
-        style={{ perspective: 1200 }}
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => { setPaused(false); dragging.current = false }}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        {testimonials.map((t, i) => {
-          const off = ((i - top) % count + count) % count;
-          if (off > 3) return null;
-          const layerStyle = [
-            { y: 0, scale: 1, opacity: 1, z: count },
-            { y: 24, scale: 0.94, opacity: 0.7, z: count - 1 },
-            { y: 44, scale: 0.88, opacity: 0.4, z: count - 2 },
-            { y: 58, scale: 0.82, opacity: 0, z: 0 },
-          ][off];
-          return (
-            <div
-              key={t.id}
-              className="absolute left-0 right-0 p-7 rounded-[18px] text-left"
-              style={{
-                background: `linear-gradient(155deg, var(--color-surface), var(--color-surface2))`,
-                border: '1px solid var(--color-border)',
-                boxShadow: 'var(--shadow-panel)',
-                transform: `translateY(${layerStyle.y}px) scale(${layerStyle.scale}) rotateX(3deg) rotateY(-7deg)`,
-                opacity: layerStyle.opacity,
-                zIndex: layerStyle.z,
-                transition: 'transform .6s cubic-bezier(.34,1.3,.64,1), opacity .5s ease',
-                pointerEvents: off === 0 ? 'auto' : 'none',
-              }}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div
-                  className="w-10 h-10 rounded-[10px] flex items-center justify-center font-bold text-[var(--color-inverse)] flex-shrink-0"
-                  style={{ background: avatarColors[i % avatarColors.length], fontFamily: "'Space Grotesk', sans-serif" }}
-                >
-                  {initials(t.name)}
-                </div>
-                <div>
-                  <div className="text-[15px] font-semibold" style={{ color: 'var(--color-text)', fontFamily: "'Space Grotesk', sans-serif" }}>{t.name}</div>
-                  <div className="font-mono text-[10.5px]" style={{ color: 'var(--color-muted)' }}>{t.role}</div>
-                </div>
-              </div>
-              <div className="flex gap-[3px] mb-3.5" style={{ color: 'var(--color-warning)' }}>
-                {Array.from({ length: t.stars }).map((_, j) => (
-                  <Star key={j} size={14} fill="currentColor" strokeWidth={0} />
-                ))}
-              </div>
-              <TypedText text={t.text} active={off === 0} />
-            </div>
-          );
-        })}
+      <div className="flex gap-4 justify-center mt-[50px]">
+        {columns.map((col, ci) => (
+          <MarqueeColumn key={ci} items={col} colIndex={ci} />
+        ))}
       </div>
-      <style>{`@keyframes blinkRCursor { 50% { opacity: 0; } }`}</style>
+      <style>{`
+        .marquee-track-up {
+          animation: marqueeUp var(--duration) linear infinite;
+        }
+        .marquee-track-down {
+          animation: marqueeDown var(--duration) linear infinite;
+        }
+        .marquee-col:hover .marquee-track-up,
+        .marquee-col:hover .marquee-track-down {
+          animation-play-state: paused;
+        }
+
+        @keyframes marqueeUp {
+          0%   { transform: translateY(0%); }
+          100% { transform: translateY(-50%); }
+        }
+        @keyframes marqueeDown {
+          0%   { transform: translateY(-50%); }
+          100% { transform: translateY(0%); }
+        }
+
+        @media (max-width: 1100px) {
+          .marquee-col:nth-child(4) { display: none; }
+        }
+        @media (max-width: 820px) {
+          .marquee-col:nth-child(3) { display: none; }
+        }
+        @media (max-width: 560px) {
+          .marquee-col:nth-child(2) { display: none; }
+        }
+      `}</style>
     </div>
   );
 }

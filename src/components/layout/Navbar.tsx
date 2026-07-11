@@ -46,7 +46,7 @@ export function Navbar() {
           { href: "/projects", label: "Projects" },
           { href: "/exam", label: "Exams" },
           { href: "/certificates", label: "Certificates" },
-          { href: "/recruiting", label: "Recruiting" },
+          // { href: "/recruiting", label: "Recruiting" },
           { href: "/pricing", label: "Pricing" },
         ];
 

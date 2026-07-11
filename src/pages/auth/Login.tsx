@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -25,6 +25,24 @@ export default function Login() {
 
   const isApplyFlow = !!(nextPath && nextPath.includes('/apply/'))
   const isProfileFlow = !!(nextPath && nextPath.includes('/profile/'))
+  const isExamFlow = !!(nextPath && nextPath.includes('/exam/'))
+
+  // If this login was triggered by a background token-refresh failure (e.g.
+  // session expired mid-exam), give a clear, reassuring message instead of
+  // silently dropping the person on the login screen. Cleared immediately so
+  // it doesn't reappear on a later, unrelated visit to this page.
+  useEffect(() => {
+    let flagged = false
+    try { flagged = sessionStorage.getItem('sessionExpiredNotice') === '1' } catch {}
+    if (!flagged) return
+    try { sessionStorage.removeItem('sessionExpiredNotice') } catch {}
+    toast(
+      isExamFlow
+        ? 'Your session expired. Sign back in and you\u2019ll be returned right to your exam.'
+        : 'Your session expired. Please sign back in.',
+      { icon: '\u23F1\uFE0F' }
+    )
+  }, [isExamFlow])
 
   const resolveRedirect = (role?: string) => {
     if (role === 'admin') return '/admin'
@@ -92,6 +110,13 @@ export default function Login() {
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-3 text-xs font-medium"
               style={{ background: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', color: 'var(--color-warning)' }}>
               <ArrowRight size={12} /> Sign in to continue to your profile
+            </div>
+          )}
+
+          {isExamFlow && (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-3 text-xs font-medium"
+              style={{ background: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', color: 'var(--color-warning)' }}>
+              <ArrowRight size={12} /> Sign back in to resume your exam
             </div>
           )}
 

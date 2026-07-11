@@ -67,16 +67,34 @@ export function useSocket(userId?: string, onProjectUpdated?: ProjectUpdatedHand
       onProjectUpdated?.(data)
     }
 
+    // FIX: notificationService.create() (used for every pipeline stage
+    // update, selection, rejection, and ranking event) emits a generic
+    // 'notification' socket event — see backend/src/services/
+    // notificationService.js `_emit`. This listener never existed here, so
+    // those in-app messages were saved to the DB but never delivered live;
+    // only the separately-queued email arrived right away. Users saw an
+    // email land instantly but the in-app notification only showed up on
+    // next page load/refresh (via fetchAll). This restores real-time
+    // delivery for all of them.
+    const handleGenericNotification = (n: Notification) => {
+      addNotification(n)
+      if (n.title || n.message) {
+        toast(n.title || n.message)
+      }
+    }
+
     socket.on('evaluation_complete', handleEvalComplete)
     socket.on('exam_result', handleExamResult)
     socket.on('certificate_ready', handleCertReady)
     socket.on('project:updated', handleProjectUpdated)
+    socket.on('notification', handleGenericNotification)
 
     return () => {
       socket.off('evaluation_complete', handleEvalComplete)
       socket.off('exam_result', handleExamResult)
       socket.off('certificate_ready', handleCertReady)
       socket.off('project:updated', handleProjectUpdated)
+      socket.off('notification', handleGenericNotification)
     }
   }, [userId, addNotification, onProjectUpdated])
 }

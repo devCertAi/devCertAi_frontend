@@ -49,6 +49,19 @@ api.interceptors.request.use((config) => {
 })
 
 // ─── Refresh state (prevents concurrent refresh storms) ──────────────────────
+// SINGLE mutex shared by every caller in the app (the reactive 401 interceptor
+// below, authStore's proactive refresh timer, and the visibilitychange
+// wake-up check). Previously the proactive timer called `/auth/refresh`
+// directly, bypassing this file's isRefreshing flag entirely — so it was
+// possible for the timer's refresh and a heartbeat/answer-save request's
+// reactive 401 refresh to both fire at once, each carrying the SAME
+// (not-yet-rotated) refresh cookie. The backend rotates the refresh token on
+// every /auth/refresh call, so the second of the two concurrent calls looks
+// like reuse of an already-rotated token — which the backend treats as a
+// stolen-token signal and revokes the user's ENTIRE session, even though the
+// first call had just succeeded. That forced a hard logout in the middle of
+// things like an active exam. Routing every refresh through this one
+// function/promise closes that race for good.
 let isRefreshing = false
 let refreshPromise: Promise<string> | null = null
 let pendingQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = []
@@ -60,6 +73,40 @@ function processQueue(error: unknown, token: string | null) {
 
 export function getRefreshPromise() { return refreshPromise }
 export function getIsRefreshing()   { return isRefreshing }
+
+/**
+ * The ONE place in the app allowed to POST /auth/refresh (or the recruiter
+ * variant). Every caller — the 401 interceptor, authStore's proactive timer,
+ * and the visibility-change wake check — must go through this. If a refresh
+ * is already in flight, callers get the SAME promise instead of firing their
+ * own request, so at most one refresh call is ever outstanding at a time.
+ */
+export function refreshAccessToken(role: 'user' | 'recruiter' | 'admin' | null = null): Promise<string> {
+  if (isRefreshing && refreshPromise) return refreshPromise
+
+  isRefreshing = true
+  const resolvedRole = role ?? currentRole()
+  const refreshUrl = resolvedRole === 'recruiter' ? '/auth/recruiter/refresh' : '/auth/refresh'
+
+  refreshPromise = api
+    .post(refreshUrl)
+    .then(({ data }) => {
+      const token = data.data?.accessToken ?? data.accessToken
+      setAccessToken(token)
+      processQueue(null, token)
+      return token
+    })
+    .catch((err) => {
+      processQueue(err, null)
+      throw err
+    })
+    .finally(() => {
+      isRefreshing = false
+      refreshPromise = null
+    })
+
+  return refreshPromise
+}
 
 // ─── Response interceptor — silent refresh on 401 ────────────────────────────
 api.interceptors.response.use(
@@ -92,30 +139,27 @@ api.interceptors.response.use(
       })
     }
 
-    isRefreshing = true
-
     const role = currentRole()
-    const refreshUrl = role === 'recruiter' ? '/auth/recruiter/refresh' : '/auth/refresh'
-    refreshPromise = api
-      .post(refreshUrl)
-      .then(({ data }) => data.data?.accessToken ?? data.accessToken)
 
     try {
-      const newToken: string = await refreshPromise
-      setAccessToken(newToken)
-      processQueue(null, newToken)
+      const newToken = await refreshAccessToken(role)
       original.headers = original.headers ?? {}
       original.headers['Authorization'] = `Bearer ${newToken}`
       return api(original)
     } catch (refreshError) {
-      processQueue(refreshError, null)
       clearAccessToken()
       clearUserRole()
-      window.location.href = role === 'recruiter' ? '/auth/recruiter-login' : '/auth/login'
+      // Preserve exactly where the person was (e.g. an in-progress exam
+      // attempt) so login can drop them right back there afterwards instead
+      // of losing their place. The exam page itself reloads the attempt
+      // (questions/answers/violations) straight from the server on mount,
+      // so nothing is actually lost server-side — this just avoids the
+      // jarring "kicked out to a blank login page" experience.
+      const returnTo = window.location.pathname + window.location.search
+      try { sessionStorage.setItem('sessionExpiredNotice', '1') } catch {}
+      const loginPath = role === 'recruiter' ? '/auth/recruiter-login' : '/auth/login'
+      window.location.href = `${loginPath}?next=${encodeURIComponent(returnTo)}`
       return Promise.reject(refreshError)
-    } finally {
-      isRefreshing = false
-      refreshPromise = null
     }
   }
 )

@@ -21,6 +21,20 @@ export function useTimer(
   const intervalRef = useRef<ReturnType<typeof setInterval>>()
   const hasStarted = useRef(false)
 
+  // BUG FIX: `useRef`'s initializer only runs on the very first render, so
+  // if `totalSeconds` arrives late (e.g. the exam attempt is still loading
+  // when this hook first mounts with a fallback default), `remaining` gets
+  // permanently stuck at that stale fallback — the countdown then starts
+  // from the wrong value once the real `totalSeconds` shows up. Re-sync
+  // `remaining` whenever `totalSeconds` changes, as long as the timer
+  // hasn't started ticking yet.
+  useEffect(() => {
+    if (hasStarted.current) return
+    remaining.current = getInitialRemaining()
+    onTick(remaining.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalSeconds])
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {

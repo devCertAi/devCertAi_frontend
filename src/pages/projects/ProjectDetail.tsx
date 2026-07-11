@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Download, RefreshCw, ExternalLink, GitBranch,
-  Shield, Zap, Code2, BookOpen, Layers, Star, AlertTriangle, Bug,
+  Shield, Zap, Code2, BookOpen, Layers, Star, AlertTriangle, Bug, Lock,
 } from "lucide-react";
 import { Project } from "@/types";
 import { PageWrapper } from "@/components/layout/PageWrapper";
@@ -15,6 +15,8 @@ import api from "@/services/api";
 import toast from "react-hot-toast";
 import { useSocket } from "@/hooks/useSocket";
 import { useAuthStore } from "@/store/authStore";
+import { PremiumGate } from "@/components/premium/PremiumGate";
+import { AdSidebar } from "@/components/ads/AdSidebar";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
@@ -112,6 +114,7 @@ export default function ProjectDetail() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("overview");
   const { user } = useAuthStore();
+  const isPremium = user?.isPremium ?? false;
 
   const fetchProject = useCallback(() => {
     api.get(`/projects/${id}`)
@@ -320,11 +323,12 @@ console.log("evalData.bugReport:", evalData?.bugReport);
             <div className="flex gap-1 p-1 bg-[var(--color-surface)] rounded-xl mb-5 w-fit border border-[var(--color-border)]">
              {tabs.map(t => (
                 <button key={t.id} onClick={() => setTab(t.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
                     tab === t.id
                       ? "bg-[var(--color-primary)] text-[var(--color-inverse)]"
                       : "text-[var(--color-muted)] hover:text-[var(--color-text)]"
                   }`}>
+                  {t.id === "deep" && !isPremium && <Lock size={12} />}
                   {t.label}
                 </button>
               ))}
@@ -501,6 +505,12 @@ console.log("evalData.bugReport:", evalData?.bugReport);
                       </Button>
                     </div>
                   </Card>
+
+                  {!isPremium && (
+                    <Card className="p-4 flex items-center justify-center">
+                      <AdSidebar />
+                    </Card>
+                  )}
                 </div>
               </div>
             )}
@@ -565,6 +575,7 @@ console.log("evalData.bugReport:", evalData?.bugReport);
 
             {/* ── DEEP ANALYSIS TAB ── */}
             {tab === "deep" && (
+              <PremiumGate feature="deep-project-analysis" showBlurPreview>
               <div className="space-y-5">
                 {/* Next steps */}
                 {report.nextSteps?.length > 0 && (
@@ -696,6 +707,7 @@ console.log("evalData.bugReport:", evalData?.bugReport);
                   </div>
                 </Card>
               </div>
+              </PremiumGate>
             )}
 
             {/* ── CERTIFICATE TAB ── */}

@@ -1,25 +1,3 @@
-/**
- * InterstitialAdModal.tsx — brief ad shown before proceeding with an action.
- *
- * Usage pattern (e.g. gating a "Submit for Evaluation" button):
- *
- *   const [showAd, setShowAd] = useState(false)
- *   const [pendingArgs, setPendingArgs] = useState<X | null>(null)
- *
- *   const onSubmit = (data) => {
- *     if (isPremium) return doSubmit(data)   // premium = no ads
- *     setPendingArgs(data)
- *     setShowAd(true)
- *   }
- *
- *   <InterstitialAdModal
- *     open={showAd}
- *     onClose={() => setShowAd(false)}
- *     onContinue={() => { setShowAd(false); if (pendingArgs) doSubmit(pendingArgs) }}
- *   />
- *
- * Skippable after a short minimum view time so it's not a dead-end.
- */
 
 import { useEffect, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'

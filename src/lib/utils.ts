@@ -4,12 +4,15 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs)
 }
 
-export function formatDate(date: string | Date) {
+export function formatDate(date: string | Date | null | undefined) {
+  if (!date) return '—'
+  const d = new Date(date)
+  if (Number.isNaN(d.getTime())) return '—'
   return new Intl.DateTimeFormat('en-IN', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(date))
+  }).format(d)
 }
 
 export function formatRelativeTime(date: string | Date) {

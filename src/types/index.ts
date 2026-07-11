@@ -69,6 +69,9 @@ export interface ExamAttempt {
   phase2Score?: number
   totalScore?: number
   level?: string
+  category?: string
+  difficulty?: string
+  questionCount?: number
   questions?: Question[]
   answers?: Record<string, string>
   timeLimitSec: number
@@ -80,14 +83,61 @@ export interface ExamAttempt {
   submittedAt?: string
   createdAt: string
   certificate?: Certificate
+  // 'pipeline' = part of a recruiter's hiring process (result goes to the
+  // recruiter, not the candidate); 'demo' = free practice; otherwise self-serve.
+  source?: 'pipeline' | 'demo' | 'free' | string
+  applicationId?: string
+  resultsHidden?: boolean
+  // Populated by GET /exam/attempt/:id — info about the OTHER phase (for the
+  // same domain) if the user has a completed attempt for it. null means the
+  // user hasn't completed the other phase, so this attempt is standalone.
+  otherPhase?: { attemptId: string; passed: boolean } | null
+  // Detailed per-question review, populated once grading finishes. Only
+  // present after the attempt is completed/terminated (see examController
+  // getAttempt — correct answers are stripped while an exam is still active).
+  evaluationReport?: Phase1Review | Phase2Review | null
 }
 
 export interface Question {
   id: string
   question: string
   options?: string[]
-  type: 'mcq' | 'text' | 'explanation'
+  type: 'mcq' | 'text' | 'explanation' | 'code'
   context?: string
+  // Correct answer — only present once the attempt is completed/terminated.
+  answer?: string
+}
+
+export interface Phase1ReviewItem {
+  questionId: string
+  question: string
+  options: string[]
+  givenAnswer: string | null
+  correctAnswer: string | null
+  isCorrect: boolean
+  explanation?: string | null
+}
+
+export interface Phase1Review {
+  phase: 1
+  correct: number
+  total: number
+  breakdown: Phase1ReviewItem[]
+}
+
+export interface Phase2ReviewItem {
+  question: string
+  context?: string
+  givenAnswer: string | null
+  score: number | null
+  maxScore: number
+  feedback: string | null
+}
+
+export interface Phase2Review {
+  phase: 2
+  summary: string | null
+  breakdown: Phase2ReviewItem[]
 }
 
 export interface ProctorFlag {
@@ -99,10 +149,14 @@ export interface Certificate {
   userName: any
   id: string
   userId: string
-  type: 'project_eval' | 'skill_cert'
+  type: 'project_eval' | 'skill_cert' | 'combo_cert'
   domain: string
   level: string
   score: number
+  difficulty?: string
+  // Only present on combo_cert certificates: which two attempts it covers
+  // and their individual scores (examAttemptId can only reference one).
+  metadata?: { phase1AttemptId?: string; phase2AttemptId?: string; phase1Score?: number; phase2Score?: number } | null
   projectId?: string
   examAttemptId?: string
   certificateUrl?: string
@@ -215,7 +269,12 @@ export interface JobPosting {
 
 export type ApplicationStage =
   | 'applied' | 'screened' | 'assignment_sent' | 'assignment_submitted'
-  | 'project_evaluated' | 'exam_sent' | 'exam_completed' | 'ranked'
+  | 'project_evaluated' | 'exam_sent' | 'exam_completed'
+  // FIX: the Phase 2 stages the backend actually sets (pipelineService.js
+  // moveToExamPhase2Sent / onExamGraded) were missing from this union entirely,
+  // which is why every piece of frontend code that switched on `application.stage`
+  // silently fell through and never rendered a "Start Phase 2" action.
+  | 'exam_phase2_sent' | 'exam_phase2_completed' | 'ranked'
 
 export type ApplicationStatus = 'in_progress' | 'rejected' | 'selected'
 
@@ -237,6 +296,7 @@ export interface Application {
   assignmentDeadlineAt?: string
   examWindowExpiresAt?: string
   examAttemptId?: string
+  phase2ExamAttemptId?: string
   projectId?: string
   createdAt: string
   updatedAt: string
@@ -246,6 +306,7 @@ export interface Application {
     companyName: string
     applyLinkSlug?: string
     examEnabled?: boolean
+    examPhase2?: boolean
     assignmentBrief?: string
     examDurationMin?: number
   }

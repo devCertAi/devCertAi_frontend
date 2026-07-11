@@ -10,8 +10,9 @@
  * - Upgrade button if not premium
  */
 
+import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Zap, BookOpen, FolderOpen, RefreshCw, Lock, Crown, AlertTriangle, ChevronRight } from 'lucide-react'
+import { Zap, BookOpen, FolderOpen, RefreshCw, Lock, Crown, AlertTriangle, ChevronRight, ChevronDown } from 'lucide-react'
 import { useCredits, CreditBalance } from '@/hooks/useCredits'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
@@ -92,49 +93,17 @@ interface CreditWidgetProps {
   compact?: boolean
 }
 
-export function CreditWidget({ className, compact = false }: CreditWidgetProps) {
-  const { balance, loading, isPremium } = useCredits()
+interface CreditPanelProps {
+  balance: CreditBalance
+  isPremium: boolean
+  className?: string
+}
 
-  if (loading) {
-    return (
-      <div className={cn('bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4', className)}>
-        <div className="animate-pulse space-y-3">
-          <div className="h-4 bg-[var(--color-surface2)] rounded w-24" />
-          <div className="h-3 bg-[var(--color-surface2)] rounded" />
-          <div className="h-3 bg-[var(--color-surface2)] rounded" />
-        </div>
-      </div>
-    )
-  }
-
+function CreditPanel({ balance, isPremium, className }: CreditPanelProps) {
   const resetDays = daysUntil(balance.cycleResetAt)
   const bonusDays = daysUntil(balance.purchasedExpiresAt)
   const hasPurchasedCredits = (balance.skill.bonus + balance.project.bonus) > 0
   const anyEmpty = balance.skill.remaining === 0 || balance.project.remaining === 0
-
-  if (compact) {
-    return (
-      <div className={cn('flex items-center gap-3', className)}>
-        <div className="flex items-center gap-1.5 text-sm">
-          <BookOpen size={13} className="text-[var(--color-muted)]" />
-          <span className={cn('font-medium', balance.skill.remaining === 0 && !isPremium ? 'text-[var(--color-danger)]' : 'text-[var(--color-text)]')}>
-            {isPremium ? '∞' : balance.skill.remaining}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5 text-sm">
-          <FolderOpen size={13} className="text-[var(--color-muted)]" />
-          <span className={cn('font-medium', balance.project.remaining === 0 && !isPremium ? 'text-[var(--color-danger)]' : 'text-[var(--color-text)]')}>
-            {isPremium ? '∞' : balance.project.remaining}
-          </span>
-        </div>
-        {!isPremium && anyEmpty && (
-          <Link to="/pricing">
-            <Button size="sm" className="text-xs h-7">Top Up</Button>
-          </Link>
-        )}
-      </div>
-    )
-  }
 
   return (
     <div className={cn('bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5', className)}>
@@ -215,6 +184,94 @@ export function CreditWidget({ className, compact = false }: CreditWidgetProps) 
       )}
     </div>
   )
+}
+
+export function CreditWidget({ className, compact = false }: CreditWidgetProps) {
+  const { balance, loading, isPremium } = useCredits()
+  const [open, setOpen] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  // Close the popover on outside click
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  if (loading) {
+    if (compact) {
+      return (
+        <div className={cn('h-9 w-28 rounded-full bg-[var(--color-surface2)] animate-pulse', className)} />
+      )
+    }
+    return (
+      <div className={cn('bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4', className)}>
+        <div className="animate-pulse space-y-3">
+          <div className="h-4 bg-[var(--color-surface2)] rounded w-24" />
+          <div className="h-3 bg-[var(--color-surface2)] rounded" />
+          <div className="h-3 bg-[var(--color-surface2)] rounded" />
+        </div>
+      </div>
+    )
+  }
+
+  const anyEmpty = balance.skill.remaining === 0 || balance.project.remaining === 0
+  const anyLow = !isPremium && (balance.skill.remaining <= 1 || balance.project.remaining <= 1)
+
+  if (compact) {
+    return (
+      <div ref={wrapperRef} className={cn('relative', className)}>
+        <button
+          onClick={() => setOpen(o => !o)}
+          className={cn(
+            'flex items-center gap-3 h-9 pl-3 pr-2 rounded-full border transition-colors',
+            'bg-[var(--color-surface)] hover:bg-[var(--color-surface2)]',
+            anyEmpty && !isPremium
+              ? 'border-[color-mix(in_srgb,var(--color-danger)_30%,transparent)]'
+              : 'border-[var(--color-border)]'
+          )}
+        >
+          {isPremium ? (
+            <div className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-primary)]">
+              <Crown size={13} />
+              <span>Premium</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-1.5 text-sm">
+                <BookOpen size={13} className="text-[var(--color-muted)]" />
+                <span className={cn('font-medium', balance.skill.remaining === 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-text)]')}>
+                  {balance.skill.remaining}
+                </span>
+              </div>
+              <div className="w-px h-4 bg-[var(--color-border)]" />
+              <div className="flex items-center gap-1.5 text-sm">
+                <FolderOpen size={13} className="text-[var(--color-muted)]" />
+                <span className={cn('font-medium', balance.project.remaining === 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-text)]')}>
+                  {balance.project.remaining}
+                </span>
+              </div>
+              {anyLow && <AlertTriangle size={12} className="text-[var(--color-warning)]" />}
+            </>
+          )}
+          <ChevronDown size={12} className={cn('text-[var(--color-muted)] transition-transform', open && 'rotate-180')} />
+        </button>
+
+        {open && (
+          <div className="absolute right-0 mt-2 w-72 z-50 shadow-2xl rounded-2xl">
+            <CreditPanel balance={balance} isPremium={isPremium} />
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return <CreditPanel balance={balance} isPremium={isPremium} className={className} />
 }
 
 /**

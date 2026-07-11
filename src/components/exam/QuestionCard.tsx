@@ -38,8 +38,12 @@ export function QuestionCard({ question, index, total, answer, onAnswer }: Quest
         <textarea
           value={answer || ''}
           onChange={(e) => onAnswer(e.target.value)}
-          placeholder="Type your answer here..."
-          className="w-full h-48 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-4 py-3 text-sm text-[var(--color-text)] placeholder-[var(--color-muted)] focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] resize-none transition-colors"
+          placeholder={question.type === 'code' ? 'Write your code here...' : 'Type your answer here...'}
+          spellCheck={question.type !== 'code'}
+          className={cn(
+            'w-full h-48 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-4 py-3 text-sm text-[var(--color-text)] placeholder-[var(--color-muted)] focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] resize-none transition-colors',
+            question.type === 'code' && 'font-mono'
+          )}
         />
       )}
       {question.context && (

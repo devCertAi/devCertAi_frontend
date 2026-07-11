@@ -55,19 +55,19 @@ import RankedList from '@/pages/recruiter/RankedList'
  import RecruiterRegisterOTP from '@/pages/auth/RecruiterRegisterOTP'
 import RecruiterLogin from '@/pages/auth/RecruiterLogin'
 import RecruiterProfile from '@/pages/recruiter/RecruiterProfile'
+import ApplicationDetail from '@/pages/applications/ApplicationDetail'
+import ExamGate from '@/pages/applications/ExamGate'
+import About from './pages/footer/About'
+import { Contact } from 'lucide-react'
+import PrivacyPolicy from './pages/footer/PrivacyPolicy'
+import TermsOfService from './pages/footer/TermsOfService'
+import CookiePolicy from './pages/footer/CookiePolicy'
 
 
 // Routes that hide the nav/sidebar (full-screen experiences)
 const AUTH_ROUTES = ['/auth/', '/verify/', '/certificate/', '/apply/']
 const HIRING_ROUTES = ['/hiring', '/recruiting']
-
-// Narrower list: pages where someone is actively choosing/establishing an
-// identity. Session restoration is skipped ONLY here — unlike AUTH_ROUTES
-// above, this must NOT include /apply/, /verify/, /certificate/, or the
-// email-verify/reset-password links, since those legitimately rely on an
-// already-restored session (e.g. ApplyPage prefilling for a logged-in
-// candidate). Widening this list to match AUTH_ROUTES would silently log
-// people out of pages that still need their session.
+ 
 const IDENTITY_ENTRY_ROUTES = ['/auth/login', '/auth/register', '/auth/recruiter-login', '/auth/register-recruiter']
 
 function AppLayout({ children }: { children: React.ReactNode }) {
@@ -80,8 +80,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isRecruiter = user?.role === 'recruiter' || user?.role === 'admin'
 
-  // Hide sidebar on other people's profiles; show it when viewing your own
-  const profileMatch = location.pathname.match(/^\/profile\/([^/]+)/)
+   const profileMatch = location.pathname.match(/^\/profile\/([^/]+)/)
   const isOtherProfile = profileMatch ? profileMatch[1] !== user?.username : false
 
   const showSidebar =
@@ -135,24 +134,14 @@ export default function App() {
   useEffect(() => {
     const token = localStorage.getItem('accessToken')
     const onIdentityEntryRoute = IDENTITY_ENTRY_ROUTES.some((r) => window.location.pathname.startsWith(r))
-
-    // Deliberately skip session restoration while the person is sitting on
-    // a login/register page (user OR recruiter). If a stale (but still
-    // cookie-valid) session for the OTHER role exists from an earlier
-    // visit, silently restoring it here — right as they're trying to log
-    // in fresh as a different role — is what caused "log in as user, land
-    // as recruiter" (and vice versa). Every other page (including /apply,
-    // /verify, /certificate) still restores normally.
+ 
     if (!token || onIdentityEntryRoute) {
       useAuthStore.setState({ isInitializing: false })
       return
     }
     fetchMe()
       .then(() => {
-        // Notifications are a user-only feature (recruiter/admin tokens
-        // don't carry a `userId` payload, so /api/notifications 401s with
-        // "Invalid token payload" for them) — only fetch for plain users.
-        const role = useAuthStore.getState().user?.role
+         const role = useAuthStore.getState().user?.role
         if (role === 'user') fetchAll()
       })
       .catch(() => {})
@@ -171,7 +160,7 @@ export default function App() {
           <Route path="/verify/:verificationId" element={<Verify />} />
           <Route path="/certificate/:verificationId" element={<Verify />} />
           <Route path="/auth/verify-email/:token" element={<VerifyEmail />} />
-          <Route path="/profile/:username" element={<Profile />} />
+          <Route path="/profile/:username" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/pricing" element={<Pricing />} />
 
           {/* Hiring landing — public, no sidebar, shown when "Hire" button clicked */}
@@ -191,6 +180,8 @@ export default function App() {
           <Route path="/exam" element={<StudentRoute><ExamSelect /></StudentRoute>} />
           <Route path="/exam/room/:id" element={<StudentRoute><ExamRoom /></StudentRoute>} />
           <Route path="/exam/result/:id" element={<StudentRoute><ExamResult /></StudentRoute>} />
+          <Route path="/applications/:id" element={<StudentRoute><ApplicationDetail /></StudentRoute>} />
+          <Route path="/applications/:id/exam" element={<StudentRoute><ExamGate /></StudentRoute>} />
           <Route path="/certificates" element={<StudentRoute><Certificates /></StudentRoute>} />
           <Route path="/recruiter/settings" element={<ProtectedRoute recruiterOnly><Settings /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
@@ -210,6 +201,14 @@ export default function App() {
           <Route path="/admin/questions" element={<ProtectedRoute adminOnly><AdminQuestions /></ProtectedRoute>} />
           <Route path="/admin/queues" element={<ProtectedRoute adminOnly><AdminQueues /></ProtectedRoute>} />
           <Route path="/admin/companies" element={<ProtectedRoute adminOnly><AdminCompanyVerification /></ProtectedRoute>} />
+
+          {/* about */}
+          <Route path="/about" element={<About />} /> 
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-of-service" element={<TermsOfService />} />
+          <Route path="/cookie-policy" element={<CookiePolicy />} />
+
 
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -14,7 +14,7 @@ import { SkillsInput } from '@/components/profile/SkillsInput'
 import api from '@/services/api'
 import { Skill } from '@/types'
 
-const EXAM_DOMAINS = ['Frontend', 'Backend', 'Full Stack', 'Mobile', 'Data Science', 'DevOps', 'Blockchain', 'AI/ML']
+const EXAM_DOMAINS = ['Frontend', 'Backend', 'Full Stack', 'Mobile', 'Data Science', 'DevOps', 'Programming Languages', 'Blockchain', 'AI/ML']
 
 // ─── Toggle ───────────────────────────────────────────────────────────────────
 function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label?: string }) {

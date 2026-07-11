@@ -55,8 +55,15 @@ const [pendingSubmitData, setPendingSubmitData] = useState<ProjectSubmitInput | 
   const validateGithub = async () => {
     if (!githubUrl) return;
     try {
-      await api.post("/projects/validate-github", { githubUrl });
-      setGithubValid(true);
+      // FIX: this was POSTing { githubUrl } to a route that's only
+      // registered as GET and reads `req.query.url` — every call 404'd,
+      // so githubValid was always forced to false and the URL always
+      // showed as "not found or not public" even for a perfectly valid repo.
+      const { data } = await api.get("/projects/validate-github", {
+        params: { url: githubUrl },
+      });
+      const validation = data.data ?? data;
+      setGithubValid(!!validation.valid && validation.isPublic !== false);
     } catch {
       setGithubValid(false);
     }
@@ -228,7 +235,9 @@ onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
                       : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-border)]",
                   )}
                 >
-                  <div className="text-2xl mb-2">{d.icon}</div>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-2" style={{ background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', color: 'var(--color-primary)' }}>
+                    <d.icon size={18} strokeWidth={1.8} />
+                  </div>
                   <p className="text-sm font-medium text-[var(--color-text)]">{d.name}</p>
                   <p className="text-xs text-[var(--color-muted)] mt-0.5">
                     {d.description}
@@ -333,7 +342,7 @@ onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
                     </p>
                   )}
                   <p className="mt-1.5 text-xs text-[var(--color-muted)]">
-                    Repository must be public with ≥5 commits
+                    Repository must be public with ≥5 commits, under 200MB
                   </p>
                 </div>
               )}

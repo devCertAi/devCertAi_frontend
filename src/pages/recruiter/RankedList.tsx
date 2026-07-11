@@ -1,8 +1,15 @@
 /**
  * RankedList.tsx
  *
- * Shows the final ranked shortlist for a posting after ranking is complete.
- * Recruiter can hire or reject candidates from this view.
+ * Shows the ranked candidate list for a posting after "Generate Rankings"
+ * has run. No selection/rejection email is sent at that point — the
+ * recruiter reviews the list here, checks who to select (top candidates
+ * are pre-checked based on openings/cutoff), and clicks "Send Decisions".
+ *
+ * Send Decisions is the ONLY action that emails anyone:
+ *   - every checked candidate gets a "selected" email
+ *   - every other ranked candidate gets a "rejected" email
+ * The posting is then closed automatically so it stops accepting applicants.
  *
  * Route: /recruiter/postings/:id/ranked
  */
@@ -11,7 +18,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Trophy, CheckCircle2, XCircle, RefreshCw,
-  ChevronDown, ChevronUp, Download, ExternalLink, AlertCircle,
+  ChevronDown, ChevronUp, Download, AlertCircle, Send, Lock, CheckSquare, Square,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Card } from '@/components/ui/Card'
@@ -51,6 +58,9 @@ interface RankedData {
   postingId: string
   postingTitle: string
   rankedAt: string | null
+  finalized: boolean
+  recommendedSelectedIds: string[]
+  applications: RankedCandidate[]
   selected: RankedCandidate[]
   ranked: RankedCandidate[]
   rejected: RankedCandidate[]
@@ -70,39 +80,55 @@ function ScoreBar({ value, label }: { value: number | null; label: string }) {
 }
 
 function CandidateCard({
-  app, rank, onHire, onReject, actioning,
+  app, rank, selectable, checked, onToggle, readOnlyStatus,
 }: {
   app: RankedCandidate
   rank: number
-  onHire: (id: string) => void
-  onReject: (id: string, reason: string) => void
-  actioning: string | null
+  selectable: boolean
+  checked?: boolean
+  onToggle?: (id: string) => void
+  readOnlyStatus?: string
 }) {
   const [expanded, setExpanded] = useState(false)
-  const [showRejectForm, setShowRejectForm] = useState(false)
-  const [rejectNote, setRejectNote] = useState('')
-
   const medals: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
+  const status = readOnlyStatus ?? app.status
 
   return (
     <div
       className="rounded-2xl overflow-hidden"
       style={{
-        background: app.status === 'selected'
+        background: status === 'selected'
           ? 'color-mix(in srgb, var(--color-success) 4%, var(--color-surface))'
-          : app.status === 'rejected'
+          : status === 'rejected'
           ? 'color-mix(in srgb, var(--color-danger) 3%, var(--color-surface))'
+          : checked
+          ? 'color-mix(in srgb, var(--color-primary) 5%, var(--color-surface))'
           : 'var(--color-surface)',
-        border: app.status === 'selected'
+        border: status === 'selected'
           ? '1px solid color-mix(in srgb, var(--color-success) 25%, transparent)'
-          : app.status === 'rejected'
+          : status === 'rejected'
           ? '1px solid color-mix(in srgb, var(--color-danger) 20%, transparent)'
+          : checked
+          ? '1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)'
           : '1px solid var(--color-border)',
       }}
     >
       {/* Main row */}
       <div className="p-4">
         <div className="flex items-start gap-4">
+          {/* Checkbox (only while reviewing, before decisions are sent) */}
+          {selectable && (
+            <button
+              type="button"
+              onClick={() => onToggle?.(app.id)}
+              className="flex-shrink-0 mt-1"
+              style={{ color: checked ? 'var(--color-primary)' : 'var(--color-muted)' }}
+              aria-label={checked ? 'Deselect candidate' : 'Select candidate'}
+            >
+              {checked ? <CheckSquare size={18} /> : <Square size={18} />}
+            </button>
+          )}
+
           {/* Rank */}
           <div className="flex-shrink-0 text-center w-10">
             <div className="text-lg">{medals[rank] || rank}</div>
@@ -146,38 +172,19 @@ function CandidateCard({
           )}
         </div>
 
-        {/* Status badge + action buttons */}
+        {/* Status badge */}
         <div className="flex items-center gap-2 mt-3 ml-[3.5rem] flex-wrap">
-          <Badge
-            variant={app.status === 'selected' ? 'success' : app.status === 'rejected' ? 'danger' : 'info'}
-            className="text-[10px]"
-          >
-            {app.status === 'in_progress' ? 'Pending decision' : app.status}
-          </Badge>
-
-          {app.status === 'in_progress' && (
-            <>
-              <Button
-                size="xs"
-                loading={actioning === `hire-${app.id}`}
-                onClick={() => onHire(app.id)}
-                style={{ background: 'var(--color-success)', color: 'white', fontSize: 11 }}
-              >
-                <CheckCircle2 size={11} /> Hire
-              </Button>
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => setShowRejectForm(!showRejectForm)}
-                style={{ color: 'var(--color-danger)', fontSize: 11 }}
-              >
-                <XCircle size={11} /> Pass
-              </Button>
-            </>
-          )}
-
-          {app.status === 'selected' && (
-            <span className="text-[10px] font-medium" style={{ color: 'var(--color-success)' }}>✓ Hired</span>
+          {selectable ? (
+            <Badge variant={checked ? 'success' : 'muted'} className="text-[10px]">
+              {checked ? 'Will be selected' : 'Will be rejected'}
+            </Badge>
+          ) : (
+            <Badge
+              variant={status === 'selected' ? 'success' : status === 'rejected' ? 'danger' : 'info'}
+              className="text-[10px]"
+            >
+              {status === 'in_progress' ? 'Pending decision' : status}
+            </Badge>
           )}
 
           <button
@@ -188,31 +195,6 @@ function CandidateCard({
             Details {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           </button>
         </div>
-
-        {/* Reject form */}
-        {showRejectForm && (
-          <div className="mt-3 ml-[3.5rem]">
-            <textarea
-              value={rejectNote}
-              onChange={e => setRejectNote(e.target.value)}
-              placeholder="Optional: feedback for candidate (will be emailed to them)"
-              rows={2}
-              className="w-full text-xs rounded-lg px-3 py-2 resize-none"
-              style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', color: 'var(--color-text)', outline: 'none' }}
-            />
-            <div className="flex gap-2 mt-1.5">
-              <Button
-                size="xs"
-                loading={actioning === `reject-${app.id}`}
-                onClick={() => { onReject(app.id, rejectNote); setShowRejectForm(false) }}
-                style={{ background: 'var(--color-danger)', color: 'white', fontSize: 11 }}
-              >
-                Confirm
-              </Button>
-              <Button size="xs" variant="ghost" onClick={() => setShowRejectForm(false)} style={{ fontSize: 11 }}>Cancel</Button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Expanded breakdown */}
@@ -255,40 +237,36 @@ export default function RankedList() {
   const navigate = useNavigate()
   const [data, setData] = useState<RankedData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [actioning, setActioning] = useState<string | null>(null)
   const [showRejected, setShowRejected] = useState(false)
   const [ranking, setRanking] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
 
   const load = useCallback(() => {
     setLoading(true)
     api.get(`/recruiter/postings/${id}/ranked`)
-      .then(r => setData(r.data.data))
+      .then(r => {
+        const d: RankedData = r.data.data
+        setData(d)
+        // Pre-check the recommended candidates every time we (re)load,
+        // as long as decisions haven't been sent yet.
+        if (!d.finalized) {
+          setCheckedIds(new Set(d.recommendedSelectedIds || []))
+        }
+      })
       .catch(() => toast.error('Failed to load ranked list'))
       .finally(() => setLoading(false))
   }, [id])
 
   useEffect(() => { load() }, [load])
 
-  const handleHire = async (applicationId: string) => {
-    setActioning(`hire-${applicationId}`)
-    try {
-      await api.patch(`/recruiter/applications/${applicationId}/hire`)
-      toast.success('Candidate marked as hired! 🎉')
-      load()
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to hire')
-    } finally { setActioning(null) }
-  }
-
-  const handleReject = async (applicationId: string, reason: string) => {
-    setActioning(`reject-${applicationId}`)
-    try {
-      await api.patch(`/recruiter/applications/${applicationId}/reject`, { reason: reason || undefined })
-      toast.success('Candidate passed')
-      load()
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to reject')
-    } finally { setActioning(null) }
+  const toggleChecked = (applicationId: string) => {
+    setCheckedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(applicationId)) next.delete(applicationId)
+      else next.add(applicationId)
+      return next
+    })
   }
 
   const triggerRerank = async () => {
@@ -302,9 +280,26 @@ export default function RankedList() {
     } finally { setRanking(false) }
   }
 
+  const sendDecisions = async () => {
+    if (checkedIds.size === 0) {
+      toast.error('Select at least one candidate to send decisions')
+      return
+    }
+    setSending(true)
+    try {
+      const res = await api.post(`/recruiter/postings/${id}/finalize-selection`, {
+        selectedApplicationIds: Array.from(checkedIds)
+      })
+      toast.success(res.data?.data?.message || 'Decisions sent — posting closed')
+      load()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to send decisions')
+    } finally { setSending(false) }
+  }
+
   const exportCSV = () => {
     if (!data) return
-    const all = [...(data.selected || []), ...(data.ranked || []), ...(data.rejected || [])]
+    const all = data.applications || []
     const rows = [
       ['Rank', 'Name', 'Email', 'Status', 'Final Score', 'Rule', 'AI Match', 'Project', 'Exam'].join(','),
       ...all.map(a => [
@@ -344,8 +339,10 @@ export default function RankedList() {
     </PageWrapper>
   )
 
-  const allRanked = [...(data.selected || []), ...(data.ranked || [])]
-  const hasRanked = allRanked.length > 0 || (data.rejected || []).length > 0
+  const finalized = data.finalized
+  const allApplications = data.applications || []
+  const hasRanked = allApplications.length > 0
+  const pendingReview = allApplications.filter(a => a.status === 'in_progress')
 
   return (
     <PageWrapper className="pl-0 lg:pl-56">
@@ -368,22 +365,33 @@ export default function RankedList() {
               {data.rankedAt && ` · Ranked ${formatDate(data.rankedAt)}`}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button size="sm" variant="outline" onClick={exportCSV}>
               <Download size={14} /> Export CSV
             </Button>
-            <Button size="sm" loading={ranking} onClick={triggerRerank}>
-              <RefreshCw size={14} /> Re-rank
-            </Button>
+            {!finalized && (
+              <Button size="sm" variant="outline" loading={ranking} onClick={triggerRerank}>
+                <RefreshCw size={14} /> Re-rank
+              </Button>
+            )}
           </div>
         </div>
+
+        {finalized && (
+          <Card className="p-3 mb-6 flex items-center gap-2" style={{ background: 'color-mix(in srgb, var(--color-muted) 6%, transparent)' }}>
+            <Lock size={14} style={{ color: 'var(--color-muted)' }} />
+            <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+              Decisions have been sent. Selected candidates got a selection email, everyone else got a rejection email, and this posting is now closed.
+            </p>
+          </Card>
+        )}
 
         {/* Summary strip */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           {[
             { label: 'Total ranked', value: data.total, icon: Trophy, color: 'var(--color-primary)' },
-            { label: 'Hired', value: (data.selected || []).length, icon: CheckCircle2, color: 'var(--color-success)' },
-            { label: 'Rejected', value: (data.rejected || []).length, icon: XCircle, color: 'var(--color-danger)' },
+            { label: finalized ? 'Selected' : 'Checked to select', value: finalized ? (data.selected || []).length : checkedIds.size, icon: CheckCircle2, color: 'var(--color-success)' },
+            { label: finalized ? 'Rejected' : 'Will be rejected', value: finalized ? (data.rejected || []).length : Math.max(0, allApplications.length - checkedIds.size), icon: XCircle, color: 'var(--color-danger)' },
           ].map(({ label, value, icon: Icon, color }) => (
             <Card key={label} className="p-4 text-center">
               <Icon size={20} className="mx-auto mb-1" style={{ color }} />
@@ -406,50 +414,50 @@ export default function RankedList() {
           </Card>
         )}
 
-        {/* Hired candidates first */}
-        {(data.selected || []).length > 0 && (
+        {/* ── Before decisions are sent: single checklist + Send Decisions ── */}
+        {!finalized && hasRanked && (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--color-text)' }}>
+                <Trophy size={15} style={{ color: 'var(--color-primary)' }} /> Review & select ({allApplications.length})
+              </h3>
+              <Button size="sm" loading={sending} onClick={sendDecisions} disabled={checkedIds.size === 0}>
+                <Send size={14} /> Send Decisions
+              </Button>
+            </div>
+            <p className="text-xs mb-4" style={{ color: 'var(--color-muted)' }}>
+              Top candidates are pre-checked based on this posting's openings/cutoff. Adjust the checkboxes, then click <strong>Send Decisions</strong> — checked candidates get a selection email, everyone else gets a rejection email, and the posting closes.
+            </p>
+            <div className="space-y-3 mb-6">
+              {pendingReview.map((app, i) => (
+                <CandidateCard
+                  key={app.id}
+                  app={app}
+                  rank={app.rank ?? i + 1}
+                  selectable
+                  checked={checkedIds.has(app.id)}
+                  onToggle={toggleChecked}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ── After decisions are sent: read-only selected/rejected split ── */}
+        {finalized && (data.selected || []).length > 0 && (
           <div className="mb-6">
             <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--color-success)' }}>
-              <CheckCircle2 size={15} /> Hired ({data.selected.length})
+              <CheckCircle2 size={15} /> Selected ({data.selected.length})
             </h3>
             <div className="space-y-3">
               {data.selected.map((app, i) => (
-                <CandidateCard
-                  key={app.id}
-                  app={app}
-                  rank={app.rank ?? i + 1}
-                  onHire={handleHire}
-                  onReject={handleReject}
-                  actioning={actioning}
-                />
+                <CandidateCard key={app.id} app={app} rank={app.rank ?? i + 1} selectable={false} />
               ))}
             </div>
           </div>
         )}
 
-        {/* Pending ranked */}
-        {(data.ranked || []).length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--color-text)' }}>
-              <Trophy size={15} style={{ color: 'var(--color-primary)' }} /> Ranked Candidates ({data.ranked.length})
-            </h3>
-            <div className="space-y-3">
-              {data.ranked.map((app, i) => (
-                <CandidateCard
-                  key={app.id}
-                  app={app}
-                  rank={app.rank ?? i + 1}
-                  onHire={handleHire}
-                  onReject={handleReject}
-                  actioning={actioning}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Rejected — collapsible */}
-        {(data.rejected || []).length > 0 && (
+        {finalized && (data.rejected || []).length > 0 && (
           <div>
             <button
               className="flex items-center gap-2 text-sm font-semibold mb-3 transition-colors"
@@ -457,20 +465,13 @@ export default function RankedList() {
               onClick={() => setShowRejected(!showRejected)}
             >
               <XCircle size={15} style={{ color: 'var(--color-danger)' }} />
-              Screened Out ({data.rejected.length})
+              Not Selected ({data.rejected.length})
               {showRejected ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
             {showRejected && (
               <div className="space-y-3">
                 {data.rejected.map((app, i) => (
-                  <CandidateCard
-                    key={app.id}
-                    app={app}
-                    rank={app.rank ?? 999 + i}
-                    onHire={handleHire}
-                    onReject={handleReject}
-                    actioning={actioning}
-                  />
+                  <CandidateCard key={app.id} app={app} rank={app.rank ?? 999 + i} selectable={false} />
                 ))}
               </div>
             )}

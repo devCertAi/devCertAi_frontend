@@ -68,6 +68,16 @@ export const useExamStore = create<ExamState>((set, get) => ({
       currentQuestion: 0,
       answers: {},
       markedForReview: new Set(),
+      // FIX: pipeline Phase 2 attempts arrive with `questions` already
+      // generated server-side (from the project the candidate already
+      // submitted during the assignment stage — see
+      // pipelineService.moveToExamPhase2Sent). Without this, phase2Step
+      // stayed stuck at its default 'project_input', forcing the candidate
+      // to re-submit a GitHub URL for a project they'd already turned in,
+      // which could also clobber the pipeline-generated questions.
+      phase2Step: attempt.phase === 2 && (attempt.questions?.length ?? 0) > 0
+        ? 'questions'
+        : 'project_input',
     }),
 
   // Accepts both string (phase 1 question.id) and number (phase 2 index)

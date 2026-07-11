@@ -402,6 +402,7 @@ export default function Profile() {
   const [detail, setDetail] = useState<ProfileDetail | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [deletingCv, setDeletingCv] = useState(false);
+  const [viewingCv, setViewingCv] = useState(false);
 
   // ── fetch profile ──
   useEffect(() => {
@@ -430,10 +431,7 @@ export default function Profile() {
       .finally(() => setLoading(false));
   }, [username]);
 
-  // ── scroll-to-section after form mounts ──
-  // We store the target id in a ref (not state) so setting it never causes a render.
-  // The form wrapper uses a callback ref; React calls it with the DOM node the instant
-  // the node is inserted — guaranteed after paint, unlike useEffect.
+ 
   const scrollTargetRef = useRef<string | null>(null);
 
   const openSection = (sectionId: string) => {
@@ -447,6 +445,21 @@ export default function Profile() {
     const target = el.querySelector<HTMLElement>(`#${scrollTargetRef.current}`);
     if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
     scrollTargetRef.current = null;
+  };
+ 
+  const handleViewCv = async () => {
+    setViewingCv(true);
+    try {
+      const res = await api.get(`/users/${username}/cv`, { responseType: "blob" });
+      const blobUrl = URL.createObjectURL(res.data);
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+      // Revoke a little later so the new tab has time to actually load it.
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } catch {
+      toast.error("Couldn't load the CV right now");
+    } finally {
+      setViewingCv(false);
+    }
   };
 
   // ── delete CV ──
@@ -616,14 +629,13 @@ export default function Profile() {
 
                 {detail?.cvUrl && (
                   <div className="flex items-center gap-1">
-                    <a
-                      href={detail.cvUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] text-sm rounded-xl hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+                    <button
+                      onClick={handleViewCv}
+                      disabled={viewingCv}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] text-sm rounded-xl hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors disabled:opacity-50"
                     >
-                      <Download size={14} /> View CV
-                    </a>
+                      <Download size={14} /> {viewingCv ? "Loading…" : "View CV"}
+                    </button>
                     {isOwner && (
                       <button
                         onClick={handleDeleteCv}

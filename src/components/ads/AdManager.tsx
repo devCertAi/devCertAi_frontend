@@ -1,21 +1,4 @@
-/**
- * AdManager.tsx — Ad configuration
- *
- * Uses Google AdSense test IDs by default (safe for dev/testing).
- * Production: set VITE_ADSENSE_CLIENT and VITE_AD_SLOT_* in .env
- *
- * Ad placement philosophy:
- * - Never in exam rooms (breaks concentration)
- * - Never in dashboard (core work area)
- * - Never in settings/pricing (distracts from conversion)
- * - Yes after exam results (non-premium users, on fail)
- * - Yes on certificates (subtle, below the fold)
- * - Yes in home/landing below hero
- * - Yes in sidebar of profile/projects (non-intrusive)
- */
 
-// Google AdSense test client — safe for testing, won't earn revenue
-// Replace with real ca-pub-XXXXXXXXXXXXXXXX in production
 const TEST_CLIENT = 'ca-pub-3940256099942544'
 
 // Google test ad slot IDs (always show test ads)
@@ -29,10 +12,11 @@ const TEST_SLOTS = {
 }
 
 const AD_CONFIG = {
-  // In dev: use env var or fall back to test mode
   enabled: import.meta.env.VITE_ADS_ENABLED === 'true' ||
            import.meta.env.DEV,  // Show test ads in dev
-  testMode: !import.meta.env.VITE_ADSENSE_CLIENT,  // true = use test IDs
+
+  testMode: !import.meta.env.VITE_ADSENSE_CLIENT ||
+            import.meta.env.VITE_ADSENSE_CLIENT === TEST_CLIENT,
   client: import.meta.env.VITE_ADSENSE_CLIENT || TEST_CLIENT,
   slots: {
     topBanner:   import.meta.env.VITE_AD_SLOT_TOP_BANNER  || TEST_SLOTS.topBanner,
@@ -48,7 +32,6 @@ const AD_CONFIG = {
     '/exam/result',   // Handled separately (only on fail, non-premium)
     '/pricing',       // Don't distract during upgrade
     '/settings',      // Settings page
-    '/dashboard',     // Core work area
     '/recruiter',     // Recruiter flow (they pay for the platform)
     '/admin',         // Admin panel
   ]

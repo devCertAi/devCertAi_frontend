@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { ExamTimer } from './ExamTimer'
 import { Button } from '@/components/ui/Button'
-import { VideoOff } from 'lucide-react'
+import { VideoOff, AlertTriangle } from 'lucide-react'
 import { Question } from '@/types'
 
 interface ExamSidebarProps {
@@ -135,8 +135,8 @@ export function ExamSidebar({
           </div>
         </div>
         {violationCount > 0 && (
-          <p className="text-xs text-[var(--color-warning)] text-center">
-            ⚠️ {violationCount} violation{violationCount > 1 ? 's' : ''}
+          <p className="flex items-center justify-center gap-1 text-xs text-[var(--color-warning)] text-center">
+            <AlertTriangle size={12} /> {violationCount} violation{violationCount > 1 ? 's' : ''}
           </p>
         )}
       </div>

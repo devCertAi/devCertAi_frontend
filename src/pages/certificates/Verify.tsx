@@ -147,7 +147,7 @@ export default function Verify() {
             <div>
               <p className="text-xs text-[var(--color-muted)]">Type</p>
               <p className="text-sm font-medium text-[var(--color-text)]">
-                {cert!.type === 'project_eval' ? 'ProjCert' : 'SkillCert'}
+                {cert!.type === 'project_eval' ? 'ProjCert' : cert!.type === 'combo_cert' ? 'ComboCert' : 'SkillCert'}
               </p>
             </div>
             <div>

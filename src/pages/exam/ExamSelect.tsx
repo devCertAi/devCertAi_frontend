@@ -11,91 +11,132 @@ import { ExamAttempt } from '@/types'
 import { formatDate } from '@/lib/utils'
 import api from '@/services/api'
 import toast from 'react-hot-toast'
-
-/**
- * ExamSelect — Domain picker with Phase 1 and Phase 2 start flows
- *
- * BUGS FIXED:
- * 1. Only Phase 1 could be started — clicking a domain ALWAYS started Phase 1,
- *    with no way to start Phase 2. Added Phase 2 button that appears after
- *    Phase 1 is passed.
- * 2. Domain status (phase1Passed, phase2Passed, scores) was never fetched —
- *    /exam/domains endpoint existed on the backend but was never called.
- *    Now fetched and shown on each domain card.
- * 3. If user had an in-progress attempt they'd get a backend 400 error with no
- *    helpful message. Now we detect and offer to resume.
- * 4. history endpoint returns { attempts } but code read data.attempts only if
- *    it existed — safe guard added.
- */
+import { AdBanner } from '@/components/ads/AdBanner'
+import { ExamConfigModal } from '@/store/ExamConfigModal'
+import { Phase2ConfigModal } from '@/store/Phase2ConfigModal'
+import { ComboConfigModal } from '@/store/ComboConfigModal'
+import { useComboStore } from '@/store/comboStore'
 
 interface DomainStatus {
   domain: string
+  categories: string[]
   phase1: { attempted: boolean; passed: boolean; bestScore: number }
   phase2: { attempted: boolean; passed: boolean; bestScore: number; unlocked: boolean }
+  combo?: { passed: boolean }
+}
+
+interface DifficultyOption {
+  value: string
+  label: string
+  secPerQuestion: number
+}
+
+interface QuestionCountBounds {
+  min: number
+  max: number
+  default: number
 }
 
 export default function ExamSelect() {
   const [history, setHistory] = useState<ExamAttempt[]>([])
   const [domainStatus, setDomainStatus] = useState<DomainStatus[]>([])
+  const [difficulties, setDifficulties] = useState<DifficultyOption[]>([])
+  const [questionBounds, setQuestionBounds] = useState<QuestionCountBounds>({ min: 10, max: 50, default: 25 })
+  const [baseBufferSec, setBaseBufferSec] = useState(120)
+  const [phase2Difficulties, setPhase2Difficulties] = useState<DifficultyOption[]>([])
+  const [phase2QuestionBounds, setPhase2QuestionBounds] = useState<QuestionCountBounds>({ min: 3, max: 10, default: 6 })
+  const [configDomain, setConfigDomain] = useState<string | null>(null)
+  const [configPhase2Domain, setConfigPhase2Domain] = useState<string | null>(null)
+  const [configComboDomain, setConfigComboDomain] = useState<string | null>(null)
   const [startingDomain, setStartingDomain] = useState<string | null>(null)
   const [startingPhase, setStartingPhase] = useState<number | null>(null)
+  const [comboStarting, setComboStarting] = useState(false)
   const navigate = useNavigate()
+  const comboStart = useComboStore((s) => s.start)
 
   useEffect(() => {
     // Fetch both history and domain status in parallel
     Promise.all([
       api.get('/exam/history').catch(() => ({ data: { attempts: [] } })),
-      api.get('/exam/domains').catch(() => ({ data: { domains: [] } })),
+      api.get('/exam/domains').catch(() => ({ data: { domains: [], difficulties: [], questionCount: undefined, baseBufferSec: undefined } })),
     ]).then(([histRes, domainRes]) => {
-      setHistory(histRes.data.attempts || [])
-      setDomainStatus(domainRes.data.domains || [])
+      setHistory(histRes.data.data?.attempts ?? histRes.data.attempts ?? [])
+      const domainData = domainRes.data.data ?? domainRes.data ?? {}
+      setDomainStatus(domainData.domains || [])
+      setDifficulties(domainData.difficulties || [])
+      if (domainData.questionCount) setQuestionBounds(domainData.questionCount)
+      if (domainData.baseBufferSec) setBaseBufferSec(domainData.baseBufferSec)
+      if (domainData.phase2?.difficulties) setPhase2Difficulties(domainData.phase2.difficulties)
+      if (domainData.phase2?.questionCount) setPhase2QuestionBounds(domainData.phase2.questionCount)
     })
   }, [])
 
-  const handleStartExam = async (domainName: string, phase: number) => {
+  // Phase 1 always goes through the config modal (technology + difficulty +
+  // question count) since the backend requires `category` for phase 1.
+  // Phase 2 stays a direct start — it's project-based and unaffected by these.
+  const handleStartExam = async (
+    domainName: string,
+    phase: number,
+    config?: { category?: string; difficulty: string; questionCount: number }
+  ) => {
     if (startingDomain) return
     setStartingDomain(domainName)
     setStartingPhase(phase)
     try {
-      const { data } = await api.post('/exam/start', { domain: domainName, phase })
+      const { data } = await api.post('/exam/start', {
+        domain: domainName,
+        phase,
+        ...(config ? { category: config.category, difficulty: config.difficulty, questionCount: config.questionCount } : {}),
+      })
       const attemptId = data.data?.attemptId ?? data.attemptId
       if (!attemptId) throw new Error('No attemptId in response')
       navigate(`/exam/room/${attemptId}`)
     } catch (err: unknown) {
-      const errObj = err as { response?: { data?: { message?: string; attemptId?: string } } }
+      const errObj = err as { response?: { data?: { message?: string } } }
       const msg = errObj?.response?.data?.message || 'Could not start exam. Please try again.'
-      const existingAttemptId = errObj?.response?.data?.attemptId ?? errObj?.response?.data?.attemptId
-
-      if (msg.toLowerCase().includes('in-progress')) {
-        // 1. Backend returned attemptId directly in error — navigate immediately
-        if (existingAttemptId) {
-          navigate(`/exam/room/${existingAttemptId}`)
-          return
-        }
-        // 2. Search already-loaded history
-        const inProgress = history.find(
-          (a) => a.domain === domainName && a.phase === phase &&
-            ['pending', 'active', 'in_progress'].includes(a.status as string)
-        )
-        if (inProgress) { navigate(`/exam/room/${inProgress.id}`); return }
-        // 3. Last resort — fetch fresh history
-        try {
-          const { data: h } = await api.get('/exam/history?limit=20')
-          const attempts: Array<{ domain: string; phase: number; status: string; id: string }> =
-            h.data?.attempts ?? h.attempts ?? []
-          const found = attempts.find(
-            (a) => a.domain === domainName && a.phase === phase &&
-              ['pending', 'active', 'in_progress'].includes(a.status)
-          )
-          if (found) { navigate(`/exam/room/${found.id}`); return }
-        } catch {}
-        toast.error('Could not find your in-progress exam. Please refresh.')
-        return
-      }
       toast.error(msg)
     } finally {
       setStartingDomain(null)
       setStartingPhase(null)
+      setConfigDomain(null)
+      setConfigPhase2Domain(null)
+    }
+  }
+
+  // Combo: single form (category + level + question counts + GitHub URL,
+  // already verified against the domain by the modal). Starts Phase 1 like a
+  // normal attempt, but stashes the GitHub URL + Phase 2 config in comboStore
+  // so ExamResult can auto-chain into Phase 2 once Phase 1 is passed.
+  const handleStartCombo = async (
+    domainName: string,
+    config: { category: string; difficulty: string; questionCount: number; githubUrl: string; phase2QuestionCount: number }
+  ) => {
+    if (startingDomain) return
+    setComboStarting(true)
+    try {
+      const { data } = await api.post('/exam/start', {
+        domain: domainName,
+        phase: 1,
+        category: config.category,
+        difficulty: config.difficulty,
+        questionCount: config.questionCount,
+      })
+      const attemptId = data.data?.attemptId ?? data.attemptId
+      if (!attemptId) throw new Error('No attemptId in response')
+      comboStart({
+        domain: domainName,
+        githubUrl: config.githubUrl,
+        phase2Difficulty: config.difficulty,
+        phase2QuestionCount: config.phase2QuestionCount,
+      })
+      navigate(`/exam/room/${attemptId}`)
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } }
+      const msg = errObj?.response?.data?.message || 'Could not start combo exam. Please try again.'
+      toast.error(msg)
+    } finally {
+      setComboStarting(false)
+      setConfigComboDomain(null)
     }
   }
 
@@ -117,18 +158,17 @@ export default function ExamSelect() {
           {[
             {
               phase: 'Phase 1',
-              desc: '25 multiple-choice questions on your domain. Pass with ≥50% to unlock Phase 2.',
-              time: '45 min',
+              desc: 'Pick a technology, difficulty & question count.',
+              time: '~15-70 min',
               color: 'var(--color-primary)',
               icon: <BookOpen size={18} />,
             },
             {
               phase: 'Phase 2',
-              desc: 'Submit a GitHub project — AI generates 6 questions from your actual code.',
+              desc: 'Submit a GitHub project — AI generates questions from your actual code.',
               time: '60 min',
               color: 'var(--color-secondary)',
               icon: <Shield size={18} />,
-              req: 'Requires passing Phase 1',
             },
           ].map((p) => (
             <Card key={p.phase} className="p-5">
@@ -146,13 +186,14 @@ export default function ExamSelect() {
                     <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]">
                       <Clock size={11} /> {p.time}
                     </span>
-                    {p.req && <Badge variant="warning" className="text-[10px]">{p.req}</Badge>}
                   </div>
                 </div>
               </div>
             </Card>
           ))}
         </div>
+
+        <div className="flex justify-center mb-10"><AdBanner slot="topBanner" size="banner" className="w-full max-w-3xl" /></div>
 
         {/* Domain grid */}
         <h2 className="text-sm font-medium text-[var(--color-text)] mb-4">Choose a Domain</h2>
@@ -161,6 +202,7 @@ export default function ExamSelect() {
             const status = getStatusForDomain(d.name)
             const p1 = status?.phase1
             const p2 = status?.phase2
+            const combo = status?.combo
             const isStarting1 = startingDomain === d.name && startingPhase === 1
             const isStarting2 = startingDomain === d.name && startingPhase === 2
 
@@ -168,13 +210,23 @@ export default function ExamSelect() {
               <motion.div key={d.id} whileHover={{ y: -2 }}>
                 <Card className="p-5 h-full flex flex-col">
                   <div className="flex items-start justify-between mb-2">
-                    <span className="text-2xl">{d.icon}</span>
-                    {p2?.passed && (
-                      <div className="flex items-center gap-1 text-xs text-[var(--color-success)]">
+                    <div
+                      className="w-9 h-9 rounded-lg flex items-center justify-center"
+                      style={{ background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', color: 'var(--color-primary)' }}
+                    >
+                      <d.icon size={18} strokeWidth={1.8} />
+                    </div>
+                    {combo?.passed ? (
+                      <div className="flex items-center gap-1 text-xs text-[var(--color-success)]" title="Both Phase 1 and Phase 2 passed">
+                        <Trophy size={12} />
+                        <span>Combo Certified</span>
+                      </div>
+                    ) : p2?.passed ? (
+                      <div className="flex items-center gap-1 text-xs text-[var(--color-success)]" title="Phase 2 skill certificate earned">
                         <Trophy size={12} />
                         <span>Certified</span>
                       </div>
-                    )}
+                    ) : null}
                   </div>
 
                   <h3 className="font-semibold text-[var(--color-text)]">{d.name}</h3>
@@ -214,29 +266,33 @@ export default function ExamSelect() {
                       variant={p1?.passed ? 'outline' : 'primary'}
                       className="flex-1 text-xs"
                       disabled={!!startingDomain}
-                      onClick={() => handleStartExam(d.name, 1)}
+                      onClick={() => setConfigDomain(d.name)}
                     >
                       {isStarting1 ? 'Starting…' : p1?.attempted ? 'Retry P1' : 'Start P1'}
                     </Button>
 
-                    {p1?.passed && (
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        className="flex-1 text-xs"
-                        disabled={!!startingDomain}
-                        onClick={() => handleStartExam(d.name, 2)}
-                      >
-                        {isStarting2 ? 'Starting…' : p2?.attempted ? 'Retry P2' : 'Start P2'}
-                      </Button>
-                    )}
-
-                    {!p1?.passed && (
-                      <div className="flex items-center justify-center flex-1 text-xs text-[var(--color-muted)]">
-                        <Lock size={11} className="mr-1" /> P2 locked
-                      </div>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="flex-1 text-xs"
+                      disabled={!!startingDomain}
+                      onClick={() => setConfigPhase2Domain(d.name)}
+                    >
+                      {isStarting2 ? 'Starting…' : p2?.attempted ? 'Retry P2' : 'Start P2'}
+                    </Button>
                   </div>
+
+                  {!combo?.passed && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full text-xs mt-2"
+                      disabled={!!startingDomain}
+                      onClick={() => setConfigComboDomain(d.name)}
+                    >
+                      Start Combo (P1+P2)
+                    </Button>
+                  )}
                 </Card>
               </motion.div>
             )
@@ -283,6 +339,53 @@ export default function ExamSelect() {
           </div>
         )}
       </div>
+
+      {configDomain && (
+        <ExamConfigModal
+          domain={configDomain}
+          categories={getStatusForDomain(configDomain)?.categories || []}
+          difficulties={difficulties}
+          baseBufferSec={baseBufferSec}
+          minQuestions={questionBounds.min}
+          maxQuestions={questionBounds.max}
+          defaultQuestions={questionBounds.default}
+          isSubmitting={startingDomain === configDomain && startingPhase === 1}
+          onCancel={() => setConfigDomain(null)}
+          onConfirm={(config) => handleStartExam(configDomain, 1, config)}
+        />
+      )}
+
+      {configPhase2Domain && (
+        <Phase2ConfigModal
+          domain={configPhase2Domain}
+          difficulties={phase2Difficulties}
+          baseBufferSec={300}
+          minQuestions={phase2QuestionBounds.min}
+          maxQuestions={phase2QuestionBounds.max}
+          defaultQuestions={phase2QuestionBounds.default}
+          isSubmitting={startingDomain === configPhase2Domain && startingPhase === 2}
+          onCancel={() => setConfigPhase2Domain(null)}
+          onConfirm={(config) => handleStartExam(configPhase2Domain, 2, config)}
+        />
+      )}
+
+      {configComboDomain && (
+        <ComboConfigModal
+          domain={configComboDomain}
+          categories={getStatusForDomain(configComboDomain)?.categories || []}
+          difficulties={difficulties}
+          baseBufferSec={baseBufferSec}
+          minQuestions={questionBounds.min}
+          maxQuestions={questionBounds.max}
+          defaultQuestions={questionBounds.default}
+          phase2MinQuestions={phase2QuestionBounds.min}
+          phase2MaxQuestions={phase2QuestionBounds.max}
+          phase2DefaultQuestions={phase2QuestionBounds.default}
+          isSubmitting={comboStarting}
+          onCancel={() => setConfigComboDomain(null)}
+          onConfirm={(config) => handleStartCombo(configComboDomain, config)}
+        />
+      )}
     </PageWrapper>
   )
 }

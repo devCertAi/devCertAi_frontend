@@ -3,7 +3,7 @@ import { useRef, useEffect, useState } from 'react'
 import { motion, useInView } from 'framer-motion'
 import {
   ArrowRight, GitBranch, Zap, Award, Check, Shield, BarChart2, FileText, Cpu, Star,
-  Monitor, Server, Layers, Smartphone, PieChart, Settings, LucideIcon,
+  Monitor,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { AdBanner } from '@/components/ads/AdBanner'
@@ -101,10 +101,6 @@ function SectionHead({ eyebrow, title, desc, eyebrowColor = 'var(--color-seconda
       </div>
     </ScrollReveal>
   )
-}
-
-const DOMAIN_ICONS: Record<string, LucideIcon> = {
-  frontend: Monitor, backend: Server, fullstack: Layers, mobile: Smartphone, data: PieChart, devops: Settings,
 }
 
 // ─── HERO TYPING ─────────────────────────────────────────────────
@@ -343,10 +339,10 @@ export default function Home() {
       {/* ── DOMAINS ── */}
       <section id="domains" className="py-20 px-4" style={{ position: 'relative', zIndex: 1, background: 'color-mix(in srgb, var(--color-surface) 50%, transparent)' }}>
         <div className="max-w-6xl mx-auto">
-          <SectionHead eyebrow="Supported domains" title="Get certified across every track" desc="Six domains, each with its own evaluation profile and average score baseline." />
+          <SectionHead eyebrow="Supported domains" title="Get certified across every track" desc="Seven domains, each with its own evaluation profile and average score baseline." />
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {DOMAINS.map((domain, i) => {
-              const Icon = DOMAIN_ICONS[domain.id] || Monitor
+              const Icon = domain.icon || Monitor
               return (
                 <ScrollReveal key={domain.id} delay={i * 0.07}>
                   <motion.div whileHover={{ y: -4 }}>

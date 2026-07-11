@@ -50,12 +50,25 @@ export function AdBanner({ slot, size = 'square', className = '' }: AdBannerProp
     if (shouldHide || !AD_CONFIG.enabled || initialized.current) return
     if (AD_CONFIG.testMode) return  // Test mode uses placeholder, not real adsbygoogle
 
+    const w = window as unknown as { adsbygoogle?: unknown[] }
+
+    // The adsbygoogle.js loader script is never injected anywhere else in
+    // this app, so window.adsbygoogle would never exist and every <ins> tag
+    // would render empty. Inject it once (idempotent) before pushing.
+    const SCRIPT_ID = 'adsbygoogle-loader'
+    if (!document.getElementById(SCRIPT_ID)) {
+      const script = document.createElement('script')
+      script.id = SCRIPT_ID
+      script.async = true
+      script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${AD_CONFIG.client}`
+      script.crossOrigin = 'anonymous'
+      document.head.appendChild(script)
+    }
+    w.adsbygoogle = w.adsbygoogle || []
+
     try {
-      const w = window as Record<string, unknown>
-      if (Array.isArray(w.adsbygoogle)) {
-        ;(w.adsbygoogle as unknown[]).push({})
-        initialized.current = true
-      }
+      w.adsbygoogle.push({})
+      initialized.current = true
     } catch {}
   }, [shouldHide])
 
@@ -69,8 +82,8 @@ export function AdBanner({ slot, size = 'square', className = '' }: AdBannerProp
       <div
         className={cn(
           'flex flex-col items-center justify-center',
-          'bg-[var(--color-surface2)] border border-dashed border-[var(--color-border)]',
-          'rounded-lg text-xs text-[var(--color-muted)] font-mono gap-1',
+          'bg-[rgba(94,234,212,0.08)] border-2 border-dashed border-[var(--color-primary)]',
+          'rounded-lg text-xs text-[var(--color-primary)] font-mono font-bold gap-1',
           className
         )}
         style={dimensions ? {
@@ -82,9 +95,9 @@ export function AdBanner({ slot, size = 'square', className = '' }: AdBannerProp
         } : { width: '100%', minHeight: 90 }}
         title="Ad placeholder (test mode)"
       >
-        <span className="text-[10px] opacity-50">AD</span>
+        <span className="text-sm">AD PLACEHOLDER</span>
         {dimensions && (
-          <span className="text-[10px] opacity-30">{dimensions.width}×{dimensions.height}</span>
+          <span className="text-[11px]">{dimensions.width}×{dimensions.height} · slot: {slot}</span>
         )}
       </div>
     )
