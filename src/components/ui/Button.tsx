@@ -1,8 +1,25 @@
 import { ButtonHTMLAttributes, forwardRef } from 'react'
-import { motion } from 'framer-motion'
+import { motion, HTMLMotionProps } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+// framer-motion re-defines these handlers with its own AnimationDefinition-based
+// signatures, which conflict with the plain DOM ButtonHTMLAttributes versions.
+type ConflictingProps =
+  | 'onAnimationStart'
+  | 'onAnimationEnd'
+  | 'onAnimationIteration'
+  | 'onDrag'
+  | 'onDragStart'
+  | 'onDragEnd'
+  | 'onDragEnter'
+  | 'onDragExit'
+  | 'onDragLeave'
+  | 'onDragOver'
+  | 'onDrop'
+  | 'onTransitionEnd'
+
+interface ButtonProps
+  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, ConflictingProps> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline'
   size?: 'sm' | 'md' | 'lg'
   loading?: boolean
