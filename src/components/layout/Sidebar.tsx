@@ -12,7 +12,7 @@ import {
   CheckCircle,
   Users,
   HelpCircle,
-  
+  List,
   Building2,
   Activity,
 } from "lucide-react";
@@ -179,7 +179,7 @@ export function Sidebar() {
           to="/recruiting"
           className={sidebarLinkClass(p === "/recruiting")}
         >
-          <Briefcase size={17} /> Hire on DevCert
+          <Briefcase size={17} /> Hire on Proeva
         </Link> */}
       </nav>
 

@@ -38,7 +38,7 @@ export function TutorialWalkthrough() {
           className="ml-2 font-mono text-[11px] px-3.5 py-1 rounded-md"
           style={{ background: 'var(--color-surface2)', color: 'var(--color-muted)' }}
         >
-          devcert.dev/submit
+          proeva.dev/submit
         </span>
       </div>
 

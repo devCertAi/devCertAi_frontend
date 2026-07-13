@@ -40,19 +40,20 @@ export default function Dashboard() {
 
   return (
     <PageWrapper className="bg-[var(--color-bg)] pl-0 lg:pl-39">
-      <div className="px-10 pt-8 pb-16">
+      <div className="px-4 sm:px-6 lg:px-10 pt-8 pb-16">
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        {/* Header — stacks on phones so the "New Project" button doesn't
+            get squeezed next to a long name/greeting on one line */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-[var(--color-text)]">Welcome back, {user?.name?.split(' ')[0]}!</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-text)]">Welcome back, {user?.name?.split(' ')[0]}!</h1>
             <p className="text-[var(--color-muted)] text-sm mt-1">Here's what's happening with your projects</p>
           </div>
-          <Link to="/submit"><Button size="sm"><Plus size={15} /> New Project</Button></Link>
+          <Link to="/submit" className="self-start sm:self-auto"><Button size="sm"><Plus size={15} /> New Project</Button></Link>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
           <StatsCard title="Projects"     value={stats?.stats?.projectCount ?? '—'} icon={<FolderOpen size={20} />} color="var(--color-primary)" />
           <StatsCard title="Certificates" value={stats?.stats?.certCount ?? '—'}    icon={<Award size={20} />}      color="var(--color-success)" />
           <StatsCard title="Avg Score"    value={stats?.stats?.avgScore ? `${stats.stats.avgScore}/100` : '—'} icon={<BarChart2 size={20} />} color="var(--color-secondary)" />

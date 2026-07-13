@@ -1,12 +1,14 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { GitBranch, Globe, Upload, CheckCircle, Loader } from "lucide-react";
+import { GitBranch, Globe, Upload, CheckCircle, Loader, Gauge, AlertTriangle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Spinner } from "@/components/ui/Spinner";
 import { PageWrapper } from "@/components/layout/PageWrapper";
 import { AdBanner } from "@/components/ads/AdBanner";
 import { InterstitialAdModal } from "@/components/ads/InterstitialAdModal";
@@ -20,6 +22,22 @@ import { cn } from "@/lib/utils";
 
 type SubmitMethod = "github" | "liveurl" | "zip";
 type SubmitStep = 1 | 2 | 3;
+
+interface SizeEstimate {
+  tier: "small" | "medium" | "large";
+  label: string;
+  description: string;
+  creditsCost: number;
+  estimatedTokens: number;
+  canAfford: boolean;
+  unlimited: boolean;
+}
+
+const TIER_BADGE_VARIANT: Record<SizeEstimate["tier"], "success" | "warning" | "danger"> = {
+  small: "success",
+  medium: "warning",
+  large: "danger",
+};
 
 export default function Submit() {
   const [step, setStep] = useState<SubmitStep>(1);
@@ -39,6 +57,32 @@ const { isPremium } = usePremium();
 const [showAdGate, setShowAdGate] = useState(false);
 const [pendingSubmitData, setPendingSubmitData] = useState<ProjectSubmitInput | null>(null);
 
+ 
+const [sizeEstimate, setSizeEstimate] = useState<SizeEstimate | null>(null);
+const [estimating, setEstimating] = useState(false);
+const estimateRequestId = useRef(0);
+
+const fetchSizeEstimate = async (source: { githubUrl?: string; liveUrl?: string; zipFile?: File }) => {
+  const requestId = ++estimateRequestId.current;
+  setEstimating(true);
+  try {
+    const formData = new FormData();
+    if (source.githubUrl) formData.append("githubUrl", source.githubUrl);
+    else if (source.liveUrl) formData.append("liveUrl", source.liveUrl);
+    else if (source.zipFile) formData.append("zipFile", source.zipFile);
+    else return;
+
+    const { data } = await api.post("/projects/estimate-size", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    if (requestId === estimateRequestId.current) setSizeEstimate(data.data);
+  } catch {
+    if (requestId === estimateRequestId.current) setSizeEstimate(null);
+  } finally {
+    if (requestId === estimateRequestId.current) setEstimating(false);
+  }
+};
+
   const {
     register,
     handleSubmit,
@@ -52,21 +96,62 @@ const [pendingSubmitData, setPendingSubmitData] = useState<ProjectSubmitInput | 
 
   const githubUrl = watch("githubUrl");
 
-  const validateGithub = async () => {
-    if (!githubUrl) return;
+  // Zip files are already on the client, so estimate as soon as one is
+  // picked/dropped — no need to wait for blur.
+  useEffect(() => {
+    if (method === "zip" && zipFile) fetchSizeEstimate({ zipFile });
+    if (method === "zip" && !zipFile) setSizeEstimate(null);
+  }, [zipFile, method]);
+
+  // Switching methods invalidates whatever estimate we had.
+  const switchMethod = (m: SubmitMethod) => {
+    setMethod(m);
+    setSizeEstimate(null);
+  };
+
+  // Guards out-of-order responses: if the user pastes a new link before an
+  // in-flight validation for the OLD link resolves, the old link's response
+  // (whichever one happens to arrive last) must not overwrite the state.
+  const githubValidateRequestId = useRef(0);
+
+  const runGithubValidation = async (url: string) => {
+    const requestId = ++githubValidateRequestId.current;
     try {
       // FIX: this was POSTing { githubUrl } to a route that's only
       // registered as GET and reads `req.query.url` — every call 404'd,
       // so githubValid was always forced to false and the URL always
       // showed as "not found or not public" even for a perfectly valid repo.
       const { data } = await api.get("/projects/validate-github", {
-        params: { url: githubUrl },
+        params: { url },
       });
+      if (requestId !== githubValidateRequestId.current) return; // superseded
       const validation = data.data ?? data;
-      setGithubValid(!!validation.valid && validation.isPublic !== false);
+      const isValid = !!validation.valid && validation.isPublic !== false;
+      setGithubValid(isValid);
+      if (isValid) fetchSizeEstimate({ githubUrl: url });
+      else setSizeEstimate(null);
     } catch {
+      if (requestId !== githubValidateRequestId.current) return;
       setGithubValid(false);
+      setSizeEstimate(null);
     }
+  };
+ 
+  useEffect(() => {
+    if (method !== "github") return;
+    const url = githubUrl?.trim();
+    setGithubValid(null);
+    setSizeEstimate(null);
+    githubValidateRequestId.current++; // invalidate any in-flight check for the previous value
+    if (!url) return;
+    const timer = setTimeout(() => runGithubValidation(url), 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [githubUrl, method]);
+ 
+  const validateGithub = () => {
+    const url = githubUrl?.trim();
+    if (url) runGithubValidation(url);
   };
 
   const onSubmit = async (data: ProjectSubmitInput) => {
@@ -80,9 +165,7 @@ const [pendingSubmitData, setPendingSubmitData] = useState<ProjectSubmitInput | 
       return toast.error("Please enter a live URL");
     if (method === "zip" && !zipFile)
       return toast.error("Please upload a ZIP file");
-
-    // Premium users skip straight through — no ads. Everyone else sees a
-    // short interstitial ad before the evaluation actually kicks off.
+ 
     if (isPremium) {
       return doSubmit(data);
     }
@@ -307,7 +390,7 @@ onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
                   <button
                     key={id}
                     type="button"
-                    onClick={() => setMethod(id as SubmitMethod)}
+                    onClick={() => switchMethod(id as SubmitMethod)}
                     className={cn(
                       "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all",
                       method === id
@@ -353,6 +436,11 @@ onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
                   leftIcon={<Globe size={15} />}
                   error={errors.liveUrl?.message}
                   {...register("liveUrl")}
+                  onBlur={(e) => {
+                    const val = e.target.value?.trim();
+                    if (val) fetchSizeEstimate({ liveUrl: val });
+                    else setSizeEstimate(null);
+                  }}
                 />
               )}
               {method === "zip" && (
@@ -431,12 +519,70 @@ onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
               )}
             </Card>
 
+            {/* Size / credit-cost estimate — shown before submit, per the
+                "show estimate before submit" requirement. Never blocks
+                typing/uploading; only appears once we have something to
+                estimate from. */}
+            {(estimating || sizeEstimate) && (
+              <Card className="p-4">
+                {estimating ? (
+                  <div className="flex items-center gap-2.5 text-sm text-[var(--color-muted)]">
+                    <Spinner className="w-4 h-4" />
+                    Estimating project size & credit cost…
+                  </div>
+                ) : sizeEstimate ? (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Gauge size={15} className="text-[var(--color-muted)]" />
+                      <span className="text-sm text-[var(--color-text)] font-medium">
+                        Detected size:
+                      </span>
+                      <Badge variant={TIER_BADGE_VARIANT[sizeEstimate.tier]}>
+                        {sizeEstimate.label}
+                      </Badge>
+                      <span className="text-sm text-[var(--color-muted)]">
+                        {sizeEstimate.unlimited
+                          ? "Free with Premium"
+                          : `${sizeEstimate.creditsCost} project credit${sizeEstimate.creditsCost > 1 ? "s" : ""}`}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[var(--color-muted)]">
+                      {sizeEstimate.description} · ~{sizeEstimate.estimatedTokens.toLocaleString()} AI tokens estimated
+                    </p>
+                    {!sizeEstimate.unlimited && !sizeEstimate.canAfford && (
+                      <p className="flex items-center gap-1.5 text-xs text-[var(--color-danger)]">
+                        <AlertTriangle size={13} />
+                        Not enough project credits for this size. Watch an ad, wait for your monthly reset, or{" "}
+                        <button
+                          type="button"
+                          className="underline"
+                          onClick={() => navigate("/pricing")}
+                        >
+                          upgrade
+                        </button>
+                        .
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+              </Card>
+            )}
+
             <div className="flex gap-3">
               <Button type="button" variant="ghost" onClick={() => setStep(1)}>
                 ← Back
               </Button>
-              <Button type="submit" loading={loading} className="flex-1">
-                {loading ? "Analyzing Code..." : "Submit for Evaluation"}
+              <Button
+                type="submit"
+                loading={loading}
+                className="flex-1"
+                disabled={!!sizeEstimate && !sizeEstimate.unlimited && !sizeEstimate.canAfford}
+              >
+                {loading
+                  ? "Analyzing Code..."
+                  : sizeEstimate && !sizeEstimate.unlimited
+                    ? `Submit for Evaluation (${sizeEstimate.creditsCost} credit${sizeEstimate.creditsCost > 1 ? "s" : ""})`
+                    : "Submit for Evaluation"}
               </Button>
             </div>
           </form>

@@ -179,7 +179,7 @@ export function HeroDomainStack() {
     `rotateZ(${liveRotate.roll}deg)`
 
   return (
-    <div className="flex flex-col items-center justify-center gap-[18px] min-h-[540px]">
+    <div className="flex flex-col items-center justify-center gap-[18px] min-h-[420px] sm:min-h-[540px]">
       {/* context tabs */}
       <div className="flex gap-1.5 flex-wrap justify-center max-w-[360px]">
         {DOMAINS.map((d, i) => (
@@ -198,8 +198,11 @@ export function HeroDomainStack() {
         ))}
       </div>
 
-      {/* stack arena */}
-      <div className="relative" style={{ width: 340, height: 430, perspective: 1300 }}>
+      {/* stack arena — was a hard-coded 340×430, which overflows on phones
+          narrower than ~375px (the hero's own px-4 padding only leaves
+          ~288px there). Scale it down with clamp() instead, keeping the
+          same aspect ratio, so it never exceeds the viewport. */}
+      <div className="relative" style={{ width: 'clamp(240px, 78vw, 340px)', height: 'clamp(304px, 99vw, 430px)', perspective: 1300 }}>
         <div
           ref={arenaRef}
           className="relative w-full h-full hero-stack-arena"

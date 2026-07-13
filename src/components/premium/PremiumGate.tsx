@@ -50,8 +50,8 @@ const FEATURE_META: Record<PremiumFeature, { title: string; description: string;
     icon: '⚡'
   },
   'unlimited-retakes': {
-    title: 'Unlimited Exam Retakes',
-    description: 'Retake any exam unlimited times to improve your score and skill level.',
+    title: 'More Exam Retakes',
+    description: 'Retake exams up to 10 times (vs 3 on Free) to improve your score and skill level.',
     icon: '🔄'
   },
   'ads-free': {

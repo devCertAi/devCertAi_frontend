@@ -1,5 +1,5 @@
 /* ============================================================
-   DEVCERT GLOBAL THEME
+   PROEVA GLOBAL THEME
    Three switchable themes: dark (default), light, super.
    Controlled by data-theme="dark" | "light" | "super" on <html>,
    driven by ThemeContext (src/store/themeStore.ts).

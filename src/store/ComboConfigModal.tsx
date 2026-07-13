@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Clock, Layers, Gauge, Link2, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { QuestionAvailabilityTable } from '@/components/exam/QuestionAvailabilityTable'
 import api from '@/services/api'
 
 /**
@@ -25,6 +26,13 @@ interface DifficultyOption {
   secPerQuestion: number
 }
 
+interface CategoryQuestionCount {
+  easy: number
+  medium: number
+  hard: number
+  total: number
+}
+
 interface ComboConfigModalProps {
   domain: string
   categories: string[]
@@ -33,6 +41,7 @@ interface ComboConfigModalProps {
   minQuestions: number
   maxQuestions: number
   defaultQuestions: number
+  categoryQuestionCounts?: Record<string, CategoryQuestionCount>
   phase2MinQuestions: number
   phase2MaxQuestions: number
   phase2DefaultQuestions: number
@@ -72,6 +81,7 @@ export function ComboConfigModal({
   minQuestions,
   maxQuestions,
   defaultQuestions,
+  categoryQuestionCounts,
   phase2MinQuestions,
   phase2MaxQuestions,
   phase2DefaultQuestions,
@@ -91,6 +101,19 @@ export function ComboConfigModal({
     () => difficulties.find((d) => d.value === difficulty) ?? difficulties[0],
     [difficulties, difficulty]
   )
+
+  // Same reasoning as ExamConfigModal: the category TOTAL is the real
+  // ceiling, since the backend falls back across levels within a category.
+  const availableInCategory = category ? categoryQuestionCounts?.[category] : undefined
+  const effectiveMax = availableInCategory
+    ? Math.max(0, Math.min(maxQuestions, availableInCategory.total))
+    : maxQuestions
+  const effectiveMin = Math.min(minQuestions, effectiveMax)
+  const notEnoughQuestions = availableInCategory !== undefined && availableInCategory.total < minQuestions
+
+  useEffect(() => {
+    setQuestionCount((prev) => Math.min(Math.max(prev, effectiveMin), Math.max(effectiveMax, 1)))
+  }, [effectiveMin, effectiveMax])
 
   const estimatedSec = useMemo(() => {
     const secPerQuestion = selectedDifficulty?.secPerQuestion ?? 72
@@ -131,7 +154,7 @@ export function ComboConfigModal({
     }
   }
 
-  const canStart = !!category && checkState === 'match' && !isSubmitting
+  const canStart = !!category && checkState === 'match' && !isSubmitting && !notEnoughQuestions
 
   return (
     <AnimatePresence>
@@ -175,25 +198,40 @@ export function ComboConfigModal({
                 <Layers size={13} className="text-[var(--color-muted)]" />
                 <span className="text-xs font-medium text-[var(--color-text)]">Technology</span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {categories.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setCategory(c)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                      category === c
-                        ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white'
-                        : 'bg-[var(--color-surface2)] border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--color-primary)]'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-              {!category && (
+              {categories.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setCategory(c)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                        category === c
+                          ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white'
+                          : 'bg-[var(--color-surface2)] border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--color-primary)]'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[10px] text-[var(--color-danger)] px-3 py-2.5 rounded-xl border border-dashed border-[var(--color-border)]">
+                  No sections have questions available for {domain} yet. Check back later.
+                </p>
+              )}
+              {!category && categories.length > 0 && (
                 <p className="text-[10px] text-[var(--color-muted)] mt-1.5">Pick a category to continue</p>
               )}
             </div>
+
+            {/* Question availability per section — easy/medium/hard breakdown straight
+                from the backend, so the candidate can see which sections actually have
+                enough questions before picking one. */}
+            <QuestionAvailabilityTable
+              categoryQuestionCounts={categoryQuestionCounts}
+              selectedCategory={category}
+              minQuestions={minQuestions}
+            />
 
             {/* Difficulty / Level */}
             <div className="mb-5">
@@ -238,16 +276,17 @@ export function ComboConfigModal({
               </div>
               <input
                 type="range"
-                min={minQuestions}
-                max={maxQuestions}
+                min={effectiveMin}
+                max={Math.max(effectiveMax, effectiveMin)}
                 step={5}
                 value={questionCount}
+                disabled={effectiveMax < 1}
                 onChange={(e) => setQuestionCount(Number(e.target.value))}
                 className="w-full accent-[var(--color-primary)]"
               />
               <div className="flex justify-between text-[10px] text-[var(--color-muted)] mt-1">
-                <span>{minQuestions}</span>
-                <span>{maxQuestions}</span>
+                <span>{effectiveMin}</span>
+                <span>{effectiveMax}</span>
               </div>
             </div>
 

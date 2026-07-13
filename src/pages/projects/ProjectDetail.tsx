@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/Button";
 import { formatDate, getLevelColor, getScoreColor } from "@/lib/utils";
 import api from "@/services/api";
 import toast from "react-hot-toast";
-import { useSocket } from "@/hooks/useSocket";
+import { useProjectUpdates } from "@/hooks/useSocket";
+import { useCredits } from "@/hooks/useCredits";
 import { useAuthStore } from "@/store/authStore";
 import { PremiumGate } from "@/components/premium/PremiumGate";
 import { AdSidebar } from "@/components/ads/AdSidebar";
@@ -113,38 +114,83 @@ export default function ProjectDetail() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("overview");
+  const [reEvaluating, setReEvaluating] = useState(false);
   const { user } = useAuthStore();
   const isPremium = user?.isPremium ?? false;
+  const { refetch: refetchCredits } = useCredits();
+
+  const isTerminal = (status?: string) => status === 'completed' || status === 'failed';
 
   const fetchProject = useCallback(() => {
     api.get(`/projects/${id}`)
-      .then(({ data }) => setProject(data.data.project))
+      .then(({ data }) => {
+        const next: Project = data.data.project;
+        setProject(prev => {
+          // Refresh credits the moment the project settles (completed or
+          // failed) so the widget can't keep showing a stale balance.
+          // This used to only happen inside the socket handler below, but
+          // the 8s poll further down (our fallback for when the socket
+          // misses the event — reconnects, backgrounded tabs, etc.) called
+          // fetchProject() without ever touching credits, so the status
+          // badge would flip while the credit widget stayed stale until a
+          // manual page refresh. Keying off the actual status transition
+          // here means it self-heals regardless of which path caught it,
+          // and won't fire repeatedly on every poll tick once settled.
+          if (isTerminal(next.status) && (!prev || !isTerminal(prev.status))) {
+            refetchCredits();
+          }
+          return next;
+        });
+      })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, refetchCredits]);
 
   useEffect(() => { fetchProject(); }, [fetchProject]);
-
-  // FIX: listen for project:updated socket event so the page updates the moment
-  // the AI evaluation finishes — no manual refresh needed.
-  useSocket(user?.id, (data) => {
+ 
+  useProjectUpdates(user?.id, (data) => {
     if (data.projectId === id) {
       fetchProject();
     }
   });
 
-  // FIX: poll every 8 seconds while the project is still evaluating (catches the
-  // case where the socket event was missed e.g. tab was in background).
+  const handleReEvaluate = async () => {
+    if (!project) return;
+    setReEvaluating(true);
+    try {
+      await api.post(`/projects/${project.id}/re-evaluate`);
+      toast.success("Re-evaluation started");
+      fetchProject();
+      // Re-evaluating charges a credit immediately, before the project
+      // reaches a terminal state again, so reflect that right away too.
+      refetchCredits();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Couldn't start re-evaluation");
+    } finally {
+      setReEvaluating(false);
+    }
+  };
+
+  
+  const certGraceAttempts = useRef(0);
   useEffect(() => {
-    if (!project || project.status === 'completed' || project.status === 'failed') return;
-    const interval = setInterval(fetchProject, 8000);
+    if (!project) return;
+    const stillEvaluating = project.status !== 'completed' && project.status !== 'failed';
+    const awaitingCertificate =
+      project.status === 'completed' && (project.score ?? 0) >= 40 && !project.certificate && certGraceAttempts.current < 5;
+    if (!stillEvaluating && !awaitingCertificate) return;
+
+    const interval = setInterval(() => {
+      if (awaitingCertificate) certGraceAttempts.current += 1;
+      fetchProject();
+    }, 8000);
     return () => clearInterval(interval);
-  }, [project?.status, fetchProject]);
+  }, [project?.status, project?.score, project?.certificate, fetchProject]);
 
   if (loading)
     return (
-      <PageWrapper className="bg-[var(--color-bg)] pl-0 lg:pl-56">
-        <div className="max-w-6xl mx-auto px-6 pt-8 space-y-4">
+      <PageWrapper className="bg-[var(--color-bg)] pl-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 space-y-4">
           {[1,2,3].map(i => <div key={i} className="h-32 bg-[var(--color-surface)] rounded-2xl animate-pulse" />)}
         </div>
       </PageWrapper>
@@ -153,7 +199,7 @@ export default function ProjectDetail() {
   if (!project)
     return (
       <PageWrapper className="bg-[var(--color-bg)] pl-0 lg:pl-56">
-        <div className="max-w-6xl mx-auto px-6 pt-8 text-center py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 text-center py-20">
           <p className="text-[var(--color-muted)]">Project not found.</p>
           <Link to="/projects" className="text-[var(--color-primary)] hover:underline text-sm mt-2 block">← Back</Link>
         </div>
@@ -229,18 +275,10 @@ const tabs: { id: Tab; label: string }[] = [
 ];
 
 
-// DEBUG — remove after diagnosing
-console.log("project:", project);
-console.log("project.status:", project.status);
-console.log("typeof evaluationReport:", typeof project.evaluationReport);
-console.log("evalData:", evalData);
-console.log("evalData.overallScore:", evalData?.overallScore);
-console.log("evalData.categoryScores:", evalData?.categoryScores);
-console.log("evalData.bugReport:", evalData?.bugReport);
 
   return (
-    <PageWrapper className="bg-[var(--color-bg)] pl-0 lg:pl-39">
-      <div className="max-w-6xl mx-auto px-9 pt-8 pb-16">
+    <PageWrapper className="bg-[var(--color-bg)] pl-0 ">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-9 pt-8 pb-16">
         <Link to="/projects" className="inline-flex items-center gap-1 text-sm text-[var(--color-muted)] hover:text-[var(--color-text)] mb-6 transition-colors">
           <ArrowLeft size={14} /> Back to projects
         </Link>
@@ -251,7 +289,7 @@ console.log("evalData.bugReport:", evalData?.bugReport);
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-widest">
-                  DEVCERT EVALUATION REPORT
+                  PROEVA EVALUATION REPORT
                 </span>
               </div>
               <h1 className="text-2xl font-bold text-[var(--color-text)]">{project.title}</h1>
@@ -266,7 +304,12 @@ console.log("evalData.bugReport:", evalData?.bugReport);
                   {report.level || project.level}
                 </span>
               )}
-              <Badge variant={project.status === "completed" ? "success" : project.status === "evaluating" ? "warning" : "muted"}>
+              <Badge variant={
+                project.status === "completed" ? "success"
+                  : project.status === "evaluating" ? "warning"
+                  : project.status === "failed" ? "danger"
+                  : "muted"
+              }>
                 {project.status}
               </Badge>
             </div>
@@ -309,6 +352,21 @@ console.log("evalData.bugReport:", evalData?.bugReport);
             </div>
           )}
 
+          {project.status === "failed" && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 py-4 px-4 -mx-2 rounded-xl bg-[color-mix(in_srgb,var(--color-danger)_8%,transparent)] border border-[color-mix(in_srgb,var(--color-danger)_20%,transparent)]">
+              <AlertTriangle size={20} className="text-[var(--color-danger)] flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-[var(--color-text)]">Evaluation failed</p>
+                <p className="text-xs text-[var(--color-muted)] mt-0.5">
+                  Something went wrong while analyzing this project. Any credit charged for this attempt has been refunded — you can safely try again.
+                </p>
+              </div>
+              <Button size="sm" onClick={handleReEvaluate} loading={reEvaluating}>
+                <RefreshCw size={14} /> Re-evaluate
+              </Button>
+            </div>
+          )}
+
           {project.githubUrl && (
             <a href={project.githubUrl} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs text-[var(--color-primary)] hover:underline mt-3">
@@ -317,13 +375,41 @@ console.log("evalData.bugReport:", evalData?.bugReport);
           )}
         </Card>
 
+        {/* While evaluating, show skeleton placeholders instead of leaving
+            the rest of the page empty (which just showed the near-black
+            page background with a single small card, and reads like a
+            broken "black screen"). */}
+        {project.status === "evaluating" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-2 space-y-5">
+              <Card className="p-6 space-y-4">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="h-8 bg-[var(--color-surface2)] rounded-lg animate-pulse" />
+                ))}
+              </Card>
+            </div>
+            <div className="space-y-5">
+              <Card className="p-5">
+                <div className="h-48 bg-[var(--color-surface2)] rounded-lg animate-pulse" />
+              </Card>
+              <Card className="p-5">
+                <div className="h-32 bg-[var(--color-surface2)] rounded-lg animate-pulse" />
+              </Card>
+            </div>
+          </div>
+        )}
+
         {/* ── Tabs ── */}
         {completed && (
           <>
-            <div className="flex gap-1 p-1 bg-[var(--color-surface)] rounded-xl mb-5 w-fit border border-[var(--color-border)]">
+            {/* w-fit + 4 tabs is wider than a phone screen and had nothing
+                stopping it from pushing the whole page into horizontal
+                scroll — max-w-full + overflow-x-auto contains that scroll
+                to just the tab strip instead. */}
+            <div className="flex gap-1 p-1 bg-[var(--color-surface)] rounded-xl mb-5 max-w-full overflow-x-auto border border-[var(--color-border)]">
              {tabs.map(t => (
                 <button key={t.id} onClick={() => setTab(t.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 shrink-0 ${
                     tab === t.id
                       ? "bg-[var(--color-primary)] text-[var(--color-inverse)]"
                       : "text-[var(--color-muted)] hover:text-[var(--color-text)]"
@@ -492,7 +578,7 @@ console.log("evalData.bugReport:", evalData?.bugReport);
                             const res = await api.get(`/certificates/${project.certificate!.id}/download`, { responseType: "blob" });
                             const url = URL.createObjectURL(res.data);
                             const a = document.createElement("a"); a.href = url;
-                            a.download = `devcert-${project.certificate!.verificationId}.pdf`; a.click();
+                            a.download = `proeva-${project.certificate!.verificationId}.pdf`; a.click();
                             URL.revokeObjectURL(url);
                           }}>
                           <Download size={14} /> Download Certificate
@@ -727,7 +813,7 @@ console.log("evalData.bugReport:", evalData?.bugReport);
                       const res = await api.get(`/certificates/${project.certificate!.id}/download`, { responseType: "blob" });
                       const url = URL.createObjectURL(res.data);
                       const a = document.createElement("a"); a.href = url;
-                      a.download = `devcert-${project.certificate!.verificationId}.pdf`; a.click();
+                      a.download = `proeva-${project.certificate!.verificationId}.pdf`; a.click();
                       URL.revokeObjectURL(url);
                     }}>
                       <Download size={15} /> Download PDF Certificate

@@ -1,0 +1,85 @@
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="bg_g" cx="50%" cy="50%" r="90%">
+      <stop offset="0%" stop-color="#1A2028"/>
+      <stop offset="100%" stop-color="#0A0D12"/>
+    </radialGradient>
+
+    <!-- Diamond Base Gradients -->
+    <linearGradient id="teal_g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F5D4"/>
+      <stop offset="100%" stop-color="#00A389"/>
+    </linearGradient>
+    <linearGradient id="violet_g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A78BFA"/>
+      <stop offset="100%" stop-color="#6D28D9"/>
+    </linearGradient>
+    
+    <!-- Diamond Dark Facets (Shadow) -->
+    <linearGradient id="teal_dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#008573"/>
+      <stop offset="100%" stop-color="#004D3F"/>
+    </linearGradient>
+    <linearGradient id="violet_dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5A3FCC"/>
+      <stop offset="100%" stop-color="#2E1A73"/>
+    </linearGradient>
+
+    <!-- Glass Highlight Gradient -->
+    <linearGradient id="glass_g" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Professional Glow behind the diamond -->
+    <radialGradient id="glow_g" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00F5D4" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#00F5D4" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Subtle Border Gradient -->
+    <linearGradient id="border_g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2A313C" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#141A24" stop-opacity="0.8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Card -->
+  <rect x="0" y="0" width="600" height="600" rx="140" fill="url(#bg_g)"/>
+  <rect x="2" y="2" width="596" height="596" rx="138" fill="none" stroke="url(#border_g)" stroke-width="2"/>
+
+  <!-- Ambient Glow behind the diamond -->
+  <circle cx="300" cy="288" r="180" fill="url(#glow_g)" />
+
+  <!-- Diamond Logo Group (Centered) -->
+  <g transform="translate(44, 32)">
+    
+    <!-- Left Large Facet -->
+    <polygon points="256,112 156,256 256,400" fill="url(#teal_g)"/>
+    
+    <!-- Right Large Facet -->
+    <polygon points="256,112 356,256 256,400" fill="url(#violet_g)"/>
+    
+    <!-- Bottom Left Dark Facet -->
+    <polygon points="156,256 256,400 256,300" fill="url(#teal_dark)" opacity="0.85"/>
+    
+    <!-- Bottom Right Dark Facet -->
+    <polygon points="356,256 256,400 256,300" fill="url(#violet_dark)" opacity="0.85"/>
+    
+    <!-- Top Left Small Highlight -->
+    <polygon points="256,112 210,182 256,224" fill="#00F5D4" opacity="0.9"/>
+    
+    <!-- Top Right Small Highlight -->
+    <polygon points="256,112 302,182 256,224" fill="#C4B5FD" opacity="0.9"/>
+
+    <!-- Glass Reflection Effect (Optional, adds a 3D gem look) -->
+    <polygon points="256,112 200,160 256,240" fill="url(#glass_g)" opacity="0.15" />
+    
+    <!-- Inner Diamond Edge Highlights for Structure -->
+    <path d="M256,112 L256,400" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1.5" />
+    <path d="M156,256 L356,256" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1.5" />
+    <path d="M256,112 L210,182 L256,224 L302,182 Z" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="1" fill="none" />
+
+  </g>
+</svg>

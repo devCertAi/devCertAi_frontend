@@ -67,6 +67,25 @@ export default function ExamRoom() {
     if (pending) saveAnswerNow(pending.questionIndex, pending.answer)
   }, [saveAnswerNow])
 
+  // Exit fullscreen (if we're in it) and give the browser's exit-fullscreen
+  // animation a brief moment to finish BEFORE we navigate away. Fullscreen
+  // Exit triggers an OS/compositor-level transition; doing it at the exact
+  // moment the page unmounts (as a route-change cleanup) made that
+  // transition visually collide with the DOM swap, which is what showed up
+  // as a black flash outside the browser window right as the result/
+  // certificate page loaded. Doing it here, a beat ahead of navigate(),
+  // lets the transition complete cleanly on the still-mounted exam screen.
+  const exitFullscreenBeforeLeaving = useCallback(async () => {
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen()
+      } catch {
+        // ignore — worst case the unmount cleanup's exitFullscreen catches it
+      }
+      await new Promise((resolve) => setTimeout(resolve, 150))
+    }
+  }, [])
+
   const handleViolation = useCallback((count: number) => {
     addViolation()
     setShowViolation(true)
@@ -87,6 +106,7 @@ export default function ExamRoom() {
       timer.stop()
       await api.post(`/exam/attempt/${id}/submit`)
       submitRetryCount.current = 0
+      await exitFullscreenBeforeLeaving()
       navigate(`/exam/result/${id}`)
     } catch (err: unknown) {
       submitRetryCount.current += 1
@@ -106,7 +126,7 @@ export default function ExamRoom() {
       setIsSubmitting(false)
       setTimeout(() => handleSubmit(auto), 3000)
     }
-  }, [id, navigate, flushPendingAnswer])
+  }, [id, navigate, flushPendingAnswer, exitFullscreenBeforeLeaving])
 
   const handleTerminate = useCallback(async (reason: string) => {
     if (hasSubmitted.current) return
@@ -118,8 +138,9 @@ export default function ExamRoom() {
     try {
       await api.post(`/exam/attempt/${id}/submit`, { terminationReason: reason })
     } catch {}
+    await exitFullscreenBeforeLeaving()
     navigate('/exam/result/' + id)
-  }, [id, navigate, flushPendingAnswer])
+  }, [id, navigate, flushPendingAnswer, exitFullscreenBeforeLeaving])
 
   const { requestPermissions, enterFullscreen, setupViolationListeners, teardown, cameraStream } =
     useProctor(id!, handleViolation, handleTerminate)
@@ -474,8 +495,8 @@ export default function ExamRoom() {
       <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center px-4">
         <div className="w-full max-w-lg">
           <div className="text-center mb-8">
-            <div className="w-12 h-12 bg-[var(--color-primary)] rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-[var(--color-inverse)] font-bold text-lg">DC</span>
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 overflow-hidden">
+              <img src="/assets/logo.svg" alt="Proeva" className="w-full h-full object-cover" />
             </div>
             <h1 className="text-2xl font-bold text-[var(--color-text)]">Pre-Exam Checklist</h1>
             <p className="text-[var(--color-muted)] text-sm mt-1">
@@ -548,8 +569,8 @@ export default function ExamRoom() {
     <div className="min-h-screen bg-[var(--color-bg)] flex flex-col">
       <div className="flex items-center justify-between px-6 py-3 bg-[var(--color-surface)] border-b border-[var(--color-border)]">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-[var(--color-primary)] rounded-md flex items-center justify-center">
-            <span className="text-[var(--color-inverse)] text-xs font-bold">DC</span>
+          <div className="w-6 h-6 rounded-md flex items-center justify-center overflow-hidden">
+            <img src="/assets/logo.svg" alt="Proeva" className="w-full h-full object-cover" />
           </div>
           <span className="text-sm font-medium text-[var(--color-text)] capitalize">
             {currentAttempt?.domain} — Phase {currentAttempt?.phase}
