@@ -24,7 +24,7 @@ export const useThemeStore = create<ThemeState>()(
       },
     }),
     {
-      name: 'devcert-theme',
+      name: 'proeva-theme',
       onRehydrateStorage: () => (state) => {
         if (state) applyThemeToDocument(state.theme)
       },
@@ -35,7 +35,7 @@ export const useThemeStore = create<ThemeState>()(
 // Apply immediately on module load (covers first paint before React hydrates)
 if (typeof window !== 'undefined') {
   try {
-    const raw = localStorage.getItem('devcert-theme')
+    const raw = localStorage.getItem('proeva-theme')
     if (raw) {
       const parsed = JSON.parse(raw)
       const t = parsed?.state?.theme

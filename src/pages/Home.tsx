@@ -213,7 +213,7 @@ export default function Home() {
       </div>
 
       {/* ── HOW IT WORKS ── */}
-      <section id="how-it-works" className="py-[130px] px-4" style={{ position: 'relative', zIndex: 1 }}>
+      <section id="how-it-works" className="py-16 sm:py-[130px] px-4" style={{ position: 'relative', zIndex: 1 }}>
         <div className="max-w-6xl mx-auto">
           <SectionHead eyebrow="The pipeline" title="Get certified in 3 simple steps" desc="Every submission moves through the same sequence, so every certificate means the same thing to every employer reading it." />
 
@@ -243,7 +243,7 @@ export default function Home() {
       </section>
 
       {/* ── TUTORIAL WALKTHROUGH ── */}
-      <section className="py-[70px] pb-[130px] px-4" style={{ position: 'relative', zIndex: 1 }}>
+      <section className="py-10 pb-16 sm:py-[70px] sm:pb-[130px] px-4" style={{ position: 'relative', zIndex: 1 }}>
         <div className="max-w-[1000px] mx-auto">
           <SectionHead eyebrow="Watch it happen" title="Submit → Evaluate → Certify" desc="The same flow every project goes through, end to end." />
           <ScrollReveal>
@@ -253,7 +253,7 @@ export default function Home() {
       </section>
 
       {/* ── WHAT GETS ANALYZED ── */}
-      <section id="evaluate" className="py-[30px] pb-[120px] px-4" style={{ position: 'relative', zIndex: 1 }}>
+      <section id="evaluate" className="py-8 pb-14 sm:py-[30px] sm:pb-[120px] px-4" style={{ position: 'relative', zIndex: 1 }}>
         <div className="max-w-6xl mx-auto">
           <SectionHead eyebrow="Live evaluation" title="6 categories. Real feedback. No fluff." desc="No black box. Every metric is broken out so you know precisely what to improve." />
 
@@ -292,7 +292,7 @@ export default function Home() {
       </section>
 
       {/* ── TWO TRACKS ── */}
-      <section id="tracks" className="py-[30px] pb-[120px] px-4" style={{ position: 'relative', zIndex: 1 }}>
+      <section id="tracks" className="py-8 pb-14 sm:py-[30px] sm:pb-[120px] px-4" style={{ position: 'relative', zIndex: 1 }}>
         <div className="max-w-[1100px] mx-auto">
           <SectionHead eyebrow="Two ways to certify" title="Choose the path that fits your goals" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -327,8 +327,8 @@ export default function Home() {
       </section>
 
       {/* ── UNDER THE HOOD — BUILD TOWER ── */}
-      <section className="py-[30px] pb-[140px] px-4 max-w-[1000px] mx-auto text-center" style={{ position: 'relative', zIndex: 1 }}>
-        <SectionHead eyebrow="Under the hood" title="Every project becomes a structure we can score" desc="DevCert decomposes a repo into layers — quality, architecture, security, docs — and stacks them into one certified result." />
+      <section className="py-8 pb-16 sm:py-[30px] sm:pb-[140px] px-4 max-w-[1000px] mx-auto text-center" style={{ position: 'relative', zIndex: 1 }}>
+        <SectionHead eyebrow="Under the hood" title="Every project becomes a structure we can score" desc="Proeva decomposes a repo into layers — quality, architecture, security, docs — and stacks them into one certified result." />
         <ScrollReveal>
           <BuildTower />
         </ScrollReveal>
@@ -424,7 +424,7 @@ export default function Home() {
       </section>
 
       {/* ── FOR RECRUITERS / ABOUT HIRING ── */}
-      <section className="py-[80px] pb-[120px] px-4" style={{ position: 'relative', zIndex: 1 }}>
+      {/* <section className="py-[80px] pb-[120px] px-4" style={{ position: 'relative', zIndex: 1 }}>
         <div className="max-w-[1100px] mx-auto">
           <ScrollReveal>
             <div className="max-w-[640px] mx-auto mb-[52px] text-center">
@@ -435,7 +435,7 @@ export default function Home() {
                 Hire verified developers. No resume sifting.
               </h2>
               <p className="text-[15px] leading-relaxed" style={{ color: 'var(--color-muted)' }}>
-                Post a role, set your criteria, and DevCert's AI pipeline handles screening, assignments, and assessment —
+                Post a role, set your criteria, and Proeva's AI pipeline handles screening, assignments, and assessment —
                 delivering a ranked shortlist of real candidates, not keyword matches.
               </p>
             </div>
@@ -495,10 +495,10 @@ export default function Home() {
             </div>
           </ScrollReveal>
         </div>
-      </section>
+      </section> */}
 
       {/* ── CTA ── */}
-      <section className="py-[140px] px-4 text-center" style={{ position: 'relative', zIndex: 1 }}>
+      <section className="py-16 sm:py-[140px] px-4 text-center" style={{ position: 'relative', zIndex: 1 }}>
         <div
           className="font-mono text-[11.5px] uppercase tracking-[.1em] mb-[18px] inline-flex items-center gap-2 justify-center"
           style={{ color: 'var(--color-secondary)' }}

@@ -10,13 +10,10 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{ background: 'var(--gradient-brand)' }}
-              >
-                <span className="text-[var(--color-inverse)] font-bold text-xs">DC</span>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden">
+                <img src="/assets/logo.svg" alt="Proeva" className="w-full h-full object-cover" />
               </div>
-              <span className="font-bold" style={{ color: 'var(--color-text)' }}>DevCert</span>
+              <span className="font-bold" style={{ color: 'var(--color-text)' }}>Proeva</span>
             </div>
             <p className="text-sm leading-relaxed max-w-[280px]" style={{ color: 'var(--color-muted)' }}>
               AI-powered project evaluation and skill certification for developers.
@@ -61,7 +58,7 @@ export function Footer() {
           className="mt-10 pt-6 text-center text-xs"
           style={{ borderTop: '1px solid var(--color-border)', color: 'var(--color-muted)' }}
         >
-          © {new Date().getFullYear()} DevCert. All rights reserved.
+          © {new Date().getFullYear()} Proeva. All rights reserved.
         </div>
       </div>
     </footer>

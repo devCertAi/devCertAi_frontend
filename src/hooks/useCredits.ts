@@ -93,10 +93,11 @@ export function useCredits() {
     loading,
     refetch,
     isPremium,
-    // Conveniences
-    canTakeExam: isPremium || balance.unlimited || balance.skill.remaining > 0,
-    canEvalProject: isPremium || balance.unlimited || balance.project.remaining > 0,
-    skillRemaining: isPremium ? Infinity : balance.skill.remaining,
-    projectRemaining: isPremium ? Infinity : balance.project.remaining,
+    // Conveniences — no plan is unlimited, so these always reflect the
+    // real balance returned by the API.
+    canTakeExam: balance.skill.remaining > 0,
+    canEvalProject: balance.project.remaining > 0,
+    skillRemaining: balance.skill.remaining,
+    projectRemaining: balance.project.remaining,
   }
 }

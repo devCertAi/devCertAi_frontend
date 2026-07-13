@@ -50,10 +50,10 @@ export default function VerifyEmail() {
       >
         {/* Logo */}
         <Link to="/" className="inline-flex items-center gap-2 mb-10">
-          <div className="w-9 h-9 rounded-xl bg-[var(--color-primary)] flex items-center justify-center">
-            <span className="text-[var(--color-inverse)] font-bold text-sm">DC</span>
-          </div>
-          <span className="text-xl font-bold text-[var(--color-text)]">DevCert</span>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden">
+              <img src="/assets/logo.svg" alt="Proeva" className="w-full h-full object-cover" />
+            </div>
+          <span className="text-xl font-bold text-[var(--color-text)]">Proeva</span>
         </Link>
 
         {/* Verifying */}

@@ -63,23 +63,18 @@ export function Navbar() {
         borderBottom: "1px solid var(--color-border)",
       }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: "var(--gradient-brand)" }}
-            >
-              <span className="text-[var(--color-inverse)] font-bold text-sm">
-                DC
-              </span>
+      <div className="max-w-9xl mx-auto pl-2 pr-4 sm:pl-3 sm:pr-6 lg:pl-4 lg:pr-8">
+        <div className="flex items-center justify-between h-16 sm:h-[4.5rem]">
+        
+          <Link to="/" className="flex items-center gap-2 shrink-0 mr-2">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center overflow-hidden shrink-0">
+              <img src="/assets/logo.svg" alt="Proeva" className="w-full h-full object-cover" />
             </div>
             <span
-              className="font-bold text-lg"
+              className="font-bold text-xl sm:text-2xl tracking-tight"
               style={{ color: "var(--color-text)" }}
             >
-              DevCert
+              Proeva
             </span>
           </Link>
 
@@ -104,15 +99,22 @@ export function Navbar() {
             ))}
           </div>
 
-          {/* Right side */}
-          <div className="flex items-center gap-2">
+          {/* Right side — tighter gap on phones so the icon cluster doesn't
+              crowd the edge now that the logo takes up more room */}
+          <div className="flex items-center gap-1 sm:gap-2">
             <ThemeSwitch />
 
             {isAuthenticated ? (
               <>
-                {/* Credit balance — students only, hidden for recruiter/admin */}
+                {/* Credit balance — students only, hidden for recruiter/admin.
+                    This used to be `hidden sm:flex`, which meant it never
+                    rendered at all on any phone (< 640px) — the credit UI
+                    wasn't broken, it just never showed up on mobile. Now it
+                    always renders; `compactness` below trims its padding
+                    and hides the chevron/labels on the smallest screens so
+                    it still fits next to the other icons. */}
                 {!isRecruiter && !isAdmin && (
-                  <CreditWidget compact className="hidden sm:flex" />
+                  <CreditWidget compact className="flex" />
                 )}
 
                 {/* Notifications — sirf normal user ko */}
@@ -312,7 +314,7 @@ export function Navbar() {
                 </div>
               </>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -321,7 +323,10 @@ export function Navbar() {
                   Login
                 </Button>
                 <Button size="sm" onClick={() => navigate("/auth/register")}>
-                  Get Started
+                  {/* "Get Started" wraps/crowds next to Login + the hamburger
+                      on narrow phones — shorten it below the sm breakpoint */}
+                  <span className="hidden sm:inline">Get Started</span>
+                  <span className="sm:hidden">Sign up</span>
                 </Button>
               </div>
             )}

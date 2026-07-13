@@ -42,7 +42,7 @@ const FALLBACK: Testimonial[] = [
     id: "4",
     name: "Sneha Iyer",
     role: "React Developer",
-    text: "DevCert helped me stand out in a crowded market. The certificate with a verification URL is something no other platform offers.",
+    text: "Proeva helped me stand out in a crowded market. The certificate with a verification URL is something no other platform offers.",
     stars: 5,
   },
   {

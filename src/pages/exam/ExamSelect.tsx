@@ -17,9 +17,30 @@ import { Phase2ConfigModal } from '@/store/Phase2ConfigModal'
 import { ComboConfigModal } from '@/store/ComboConfigModal'
 import { useComboStore } from '@/store/comboStore'
 
+/**
+ * ExamSelect — Domain picker with Phase 1 and Phase 2 start flows
+ *
+ * BUGS FIXED:
+ * 1. Only Phase 1 could be started — clicking a domain ALWAYS started Phase 1,
+ *    with no way to start Phase 2. Added Phase 2 button that appears after
+ *    Phase 1 is passed.
+ * 2. Domain status (phase1Passed, phase2Passed, scores) was never fetched —
+ *    /exam/domains endpoint existed on the backend but was never called.
+ *    Now fetched and shown on each domain card.
+ * 3. If user had an in-progress attempt they'd get a backend 400 error with no
+ *    helpful message. Now we detect and offer to resume.
+ * 4. history endpoint returns { attempts } but code read data.attempts only if
+ *    it existed — safe guard added.
+ */
+
 interface DomainStatus {
   domain: string
   categories: string[]
+  categoryQuestionCounts?: Record<string, { easy: number; medium: number; hard: number; total: number }>
+  // False when the question bank has nothing active for this domain yet —
+  // categories will be empty in that case too. Lets the UI disable Phase 1 /
+  // Combo start actions instead of opening a config modal with nothing to pick.
+  hasQuestions?: boolean
   phase1: { attempted: boolean; passed: boolean; bestScore: number }
   phase2: { attempted: boolean; passed: boolean; bestScore: number; unlocked: boolean }
   combo?: { passed: boolean }
@@ -205,6 +226,10 @@ export default function ExamSelect() {
             const combo = status?.combo
             const isStarting1 = startingDomain === d.name && startingPhase === 1
             const isStarting2 = startingDomain === d.name && startingPhase === 2
+            // Only true once /exam/domains has actually loaded and confirmed
+            // this domain's question bank is empty — undefined (not yet
+            // loaded) must NOT disable the buttons.
+            const noQuestions = status !== null && status.hasQuestions === false
 
             return (
               <motion.div key={d.id} whileHover={{ y: -2 }}>
@@ -259,13 +284,20 @@ export default function ExamSelect() {
                     </div>
                   )}
 
+                  {noQuestions && (
+                    <p className="text-[10px] text-[var(--color-danger)] mb-2">
+                      No Phase 1 questions available for this domain yet.
+                    </p>
+                  )}
+
                   {/* Action buttons */}
                   <div className="flex gap-2">
                     <Button
                       size="sm"
                       variant={p1?.passed ? 'outline' : 'primary'}
                       className="flex-1 text-xs"
-                      disabled={!!startingDomain}
+                      disabled={!!startingDomain || noQuestions}
+                      title={noQuestions ? 'No questions available for this domain yet' : undefined}
                       onClick={() => setConfigDomain(d.name)}
                     >
                       {isStarting1 ? 'Starting…' : p1?.attempted ? 'Retry P1' : 'Start P1'}
@@ -287,7 +319,8 @@ export default function ExamSelect() {
                       size="sm"
                       variant="outline"
                       className="w-full text-xs mt-2"
-                      disabled={!!startingDomain}
+                      disabled={!!startingDomain || noQuestions}
+                      title={noQuestions ? 'No questions available for this domain yet' : undefined}
                       onClick={() => setConfigComboDomain(d.name)}
                     >
                       Start Combo (P1+P2)
@@ -349,6 +382,7 @@ export default function ExamSelect() {
           minQuestions={questionBounds.min}
           maxQuestions={questionBounds.max}
           defaultQuestions={questionBounds.default}
+          categoryQuestionCounts={getStatusForDomain(configDomain)?.categoryQuestionCounts}
           isSubmitting={startingDomain === configDomain && startingPhase === 1}
           onCancel={() => setConfigDomain(null)}
           onConfirm={(config) => handleStartExam(configDomain, 1, config)}
@@ -378,6 +412,7 @@ export default function ExamSelect() {
           minQuestions={questionBounds.min}
           maxQuestions={questionBounds.max}
           defaultQuestions={questionBounds.default}
+          categoryQuestionCounts={getStatusForDomain(configComboDomain)?.categoryQuestionCounts}
           phase2MinQuestions={phase2QuestionBounds.min}
           phase2MaxQuestions={phase2QuestionBounds.max}
           phase2DefaultQuestions={phase2QuestionBounds.default}

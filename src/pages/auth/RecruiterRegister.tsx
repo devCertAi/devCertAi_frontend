@@ -87,12 +87,12 @@ export default function RecruiterRegister() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-5">
-            <div className="w-9 h-9 rounded-xl bg-[var(--color-primary)] flex items-center justify-center">
-              <span className="text-[var(--color-inverse)] font-bold text-sm">DC</span>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden">
+              <img src="/assets/logo.svg" alt="Proeva" className="w-full h-full object-cover" />
             </div>
-            <span className="text-xl font-bold text-[var(--color-text)]">DevCert</span>
+            <span className="text-xl font-bold text-[var(--color-text)]">Proeva</span>
           </Link>
-          <h1 className="text-2xl font-bold text-[var(--color-text)]">Start hiring on DevCert</h1>
+          <h1 className="text-2xl font-bold text-[var(--color-text)]">Start hiring on Proeva</h1>
           <p className="text-[var(--color-muted)] mt-1 text-sm">Create your recruiter account and company profile</p>
         </div>
 

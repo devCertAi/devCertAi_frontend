@@ -87,9 +87,12 @@ export function AdBanner({ slot, size = 'square', className = '' }: AdBannerProp
           className
         )}
         style={dimensions ? {
-          width: dimensions.width,
+          // min-width beats max-width in CSS, so pinning minWidth to the
+          // full desktop ad size (e.g. 728px for 'banner') forced the page
+          // to scroll horizontally on any phone narrower than that. Using
+          // width: min(...) lets the placeholder shrink to fit instead.
+          width: `min(${dimensions.width}px, 100%)`,
           height: dimensions.height,
-          minWidth: dimensions.width,
           minHeight: dimensions.height,
           maxWidth: '100%'
         } : { width: '100%', minHeight: 90 }}
@@ -124,8 +127,9 @@ export function AdBanner({ slot, size = 'square', className = '' }: AdBannerProp
       className={cn('adsbygoogle block', className)}
       style={dimensions ? {
         display: 'block',
-        width: dimensions.width,
-        height: dimensions.height
+        width: `min(${dimensions.width}px, 100%)`,
+        height: dimensions.height,
+        maxWidth: '100%'
       } : { display: 'block' }}
       data-ad-client={AD_CONFIG.client}
       data-ad-slot={AD_CONFIG.slots[slot]}

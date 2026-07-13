@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Clock, Layers, Gauge } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { QuestionAvailabilityTable } from '@/components/exam/QuestionAvailabilityTable'
 
 /**
  * ExamConfigModal
@@ -25,6 +26,13 @@ interface DifficultyOption {
   secPerQuestion: number
 }
 
+interface CategoryQuestionCount {
+  easy: number
+  medium: number
+  hard: number
+  total: number
+}
+
 interface ExamConfigModalProps {
   domain: string
   categories: string[]
@@ -33,6 +41,10 @@ interface ExamConfigModalProps {
   minQuestions: number
   maxQuestions: number
   defaultQuestions: number
+  // { [category]: { easy, medium, hard, total } } — question availability
+  // straight from the backend's QuestionBankStats table. Optional so this
+  // still works against an older backend that doesn't send it yet.
+  categoryQuestionCounts?: Record<string, CategoryQuestionCount>
   isSubmitting: boolean
   onCancel: () => void
   onConfirm: (config: { category: string; difficulty: string; questionCount: number }) => void
@@ -61,6 +73,7 @@ export function ExamConfigModal({
   minQuestions,
   maxQuestions,
   defaultQuestions,
+  categoryQuestionCounts,
   isSubmitting,
   onCancel,
   onConfirm,
@@ -74,12 +87,42 @@ export function ExamConfigModal({
     [difficulties, difficulty]
   )
 
+  // How many questions actually exist for this category AT THE SELECTED
+  // DIFFICULTY. "Mixed" genuinely draws from every level, so its ceiling is
+  // the category total — but Easy/Medium/Hard must anchor to that single
+  // level's own count. Showing the category total for "Easy" let the
+  // candidate drag the slider past what actually exists at Easy, and the
+  // backend would (previously) quietly top up with Medium/Hard questions to
+  // reach the count — i.e. an "Easy" exam that wasn't actually all easy
+  // questions. The slider now reflects exactly what will be served.
+  const availableInCategory = category ? categoryQuestionCounts?.[category] : undefined
+  const availableForDifficulty =
+    availableInCategory === undefined
+      ? undefined
+      : difficulty === 'mixed'
+        ? availableInCategory.total
+        : availableInCategory[difficulty as 'easy' | 'medium' | 'hard'] ?? 0
+
+  const effectiveMax =
+    availableForDifficulty !== undefined ? Math.max(0, Math.min(maxQuestions, availableForDifficulty)) : maxQuestions
+  const effectiveMin = Math.min(minQuestions, effectiveMax)
+  const notEnoughQuestions = availableForDifficulty !== undefined && availableForDifficulty < minQuestions
+
+  // Keep the slider's value inside whatever range is actually available —
+  // e.g. switching to a category/difficulty with only 5 questions should pull
+  // the slider down from 25 automatically, not let the candidate submit 25
+  // and get a "not enough questions" error (or a padded, mixed-difficulty
+  // set) at Start time.
+  useEffect(() => {
+    setQuestionCount((prev) => Math.min(Math.max(prev, effectiveMin), Math.max(effectiveMax, 1)))
+  }, [effectiveMin, effectiveMax])
+
   const estimatedSec = useMemo(() => {
     const secPerQuestion = selectedDifficulty?.secPerQuestion ?? 72
     return baseBufferSec + secPerQuestion * questionCount
   }, [selectedDifficulty, questionCount, baseBufferSec])
 
-  const canStart = !!category && !isSubmitting
+  const canStart = !!category && !isSubmitting && !notEnoughQuestions
 
   return (
     <AnimatePresence>
@@ -118,25 +161,40 @@ export function ExamConfigModal({
                 <Layers size={13} className="text-[var(--color-muted)]" />
                 <span className="text-xs font-medium text-[var(--color-text)]">Technology</span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {categories.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setCategory(c)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                      category === c
-                        ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white'
-                        : 'bg-[var(--color-surface2)] border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--color-primary)]'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-              {!category && (
+              {categories.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setCategory(c)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                        category === c
+                          ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white'
+                          : 'bg-[var(--color-surface2)] border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--color-primary)]'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[10px] text-[var(--color-danger)] px-3 py-2.5 rounded-xl border border-dashed border-[var(--color-border)]">
+                  No sections have questions available for {domain} yet. Check back later.
+                </p>
+              )}
+              {!category && categories.length > 0 && (
                 <p className="text-[10px] text-[var(--color-muted)] mt-1.5">Pick a category to continue</p>
               )}
             </div>
+
+            {/* Question availability per section — easy/medium/hard breakdown straight
+                from the backend, so the candidate can see which sections actually have
+                enough questions before picking one. */}
+            <QuestionAvailabilityTable
+              categoryQuestionCounts={categoryQuestionCounts}
+              selectedCategory={category}
+              minQuestions={minQuestions}
+            />
 
             {/* Difficulty */}
             <div className="mb-5">
@@ -181,16 +239,17 @@ export function ExamConfigModal({
               </div>
               <input
                 type="range"
-                min={minQuestions}
-                max={maxQuestions}
+                min={effectiveMin}
+                max={Math.max(effectiveMax, effectiveMin)}
                 step={5}
                 value={questionCount}
+                disabled={effectiveMax < 1}
                 onChange={(e) => setQuestionCount(Number(e.target.value))}
                 className="w-full accent-[var(--color-primary)]"
               />
               <div className="flex justify-between text-[10px] text-[var(--color-muted)] mt-1">
-                <span>{minQuestions}</span>
-                <span>{maxQuestions}</span>
+                <span>{effectiveMin}</span>
+                <span>{effectiveMax}</span>
               </div>
             </div>
 

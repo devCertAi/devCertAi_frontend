@@ -39,9 +39,11 @@ interface CreditRowProps {
 }
 
 function CreditRow({ icon, label, used, limit, bonus, remaining, isPremium }: CreditRowProps) {
-  const pct = isPremium ? 100 : limit > 0 ? Math.min(100, (used / limit) * 100) : 0
-  const isLow = !isPremium && remaining <= 1
-  const isEmpty = !isPremium && remaining === 0
+  // No plan is unlimited — premium accounts show their real, larger balance
+  // (topped up by their credit pack) instead of an infinity symbol.
+  const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0
+  const isLow = remaining <= 1
+  const isEmpty = remaining === 0
 
   return (
     <div className="space-y-1.5">
@@ -51,39 +53,37 @@ function CreditRow({ icon, label, used, limit, bonus, remaining, isPremium }: Cr
           {label}
         </div>
         <div className="flex items-center gap-1.5">
-          {isEmpty && !isPremium && <Lock size={12} className="text-[var(--color-danger)]" />}
+          {isEmpty && <Lock size={12} className="text-[var(--color-danger)]" />}
           {isLow && !isEmpty && <AlertTriangle size={12} className="text-[var(--color-warning)]" />}
           <span className={cn(
             'text-sm font-medium',
-            isPremium ? 'text-[var(--color-primary)]' :
             isEmpty ? 'text-[var(--color-danger)]' :
             isLow ? 'text-[var(--color-warning)]' :
+            isPremium ? 'text-[var(--color-primary)]' :
             'text-[var(--color-text)]'
           )}>
-            {isPremium ? '∞' : remaining}
+            {remaining}
           </span>
-          {bonus > 0 && !isPremium && (
+          {bonus > 0 && (
             <span className="text-xs text-[var(--color-muted)]">
-              ({limit - used} free + {bonus} bonus)
+              ({Math.max(0, limit - used)} free + {bonus} bonus)
             </span>
           )}
         </div>
       </div>
 
       {/* Progress bar */}
-      {!isPremium && (
-        <div className="h-1.5 rounded-full bg-[var(--color-surface2)] overflow-hidden">
-          <div
-            className={cn(
-              'h-full rounded-full transition-all',
-              isEmpty ? 'bg-[var(--color-danger)]' :
-              isLow ? 'bg-[var(--color-warning)]' :
-              'bg-[var(--color-primary)]'
-            )}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      )}
+      <div className="h-1.5 rounded-full bg-[var(--color-surface2)] overflow-hidden">
+        <div
+          className={cn(
+            'h-full rounded-full transition-all',
+            isEmpty ? 'bg-[var(--color-danger)]' :
+            isLow ? 'bg-[var(--color-warning)]' :
+            'bg-[var(--color-primary)]'
+          )}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   )
 }
@@ -146,42 +146,32 @@ function CreditPanel({ balance, isPremium, className }: CreditPanelProps) {
       </div>
 
       {/* Expiry info */}
-      {!isPremium && (
-        <div className="space-y-1 border-t border-[var(--color-border)] pt-3 mb-4">
-          {balance.cycleResetAt && (
-            <div className="flex items-center gap-1.5 text-xs text-[var(--color-muted)]">
-              <RefreshCw size={10} />
-              Free credits reset in {resetDays}d ({formatDate(balance.cycleResetAt)})
-            </div>
-          )}
-          {hasPurchasedCredits && balance.purchasedExpiresAt && (
-            <div className="flex items-center gap-1.5 text-xs text-[var(--color-warning)]">
-              <AlertTriangle size={10} />
-              Purchased credits expire in {bonusDays}d ({formatDate(balance.purchasedExpiresAt)})
-            </div>
-          )}
-        </div>
-      )}
+      <div className="space-y-1 border-t border-[var(--color-border)] pt-3 mb-4">
+        {balance.cycleResetAt && (
+          <div className="flex items-center gap-1.5 text-xs text-[var(--color-muted)]">
+            <RefreshCw size={10} />
+            Free credits reset in {resetDays}d ({formatDate(balance.cycleResetAt)})
+          </div>
+        )}
+        {hasPurchasedCredits && balance.purchasedExpiresAt && (
+          <div className="flex items-center gap-1.5 text-xs text-[var(--color-warning)]">
+            <AlertTriangle size={10} />
+            Purchased credits expire in {bonusDays}d ({formatDate(balance.purchasedExpiresAt)})
+          </div>
+        )}
+      </div>
 
-      {/* Upgrade CTA */}
-      {!isPremium && (
-        <Link to="/pricing">
-          <Button
-            variant={anyEmpty ? 'primary' : 'outline'}
-            size="sm"
-            className="w-full text-xs"
-          >
-            {anyEmpty ? 'Buy Credits' : 'Get More Credits'}
-            <ChevronRight size={12} className="ml-1" />
-          </Button>
-        </Link>
-      )}
-
-      {isPremium && (
-        <p className="text-xs text-[var(--color-muted)] text-center">
-          Unlimited access with Premium plan
-        </p>
-      )}
+      {/* Buy more CTA — no plan is unlimited, so this is always useful */}
+      <Link to="/pricing">
+        <Button
+          variant={anyEmpty ? 'primary' : 'outline'}
+          size="sm"
+          className="w-full text-xs"
+        >
+          {anyEmpty ? 'Buy Credits' : 'Get More Credits'}
+          <ChevronRight size={12} className="ml-1" />
+        </Button>
+      </Link>
     </div>
   )
 }
@@ -221,7 +211,7 @@ export function CreditWidget({ className, compact = false }: CreditWidgetProps) 
   }
 
   const anyEmpty = balance.skill.remaining === 0 || balance.project.remaining === 0
-  const anyLow = !isPremium && (balance.skill.remaining <= 1 || balance.project.remaining <= 1)
+  const anyLow = balance.skill.remaining <= 1 || balance.project.remaining <= 1
 
   if (compact) {
     return (
@@ -229,7 +219,7 @@ export function CreditWidget({ className, compact = false }: CreditWidgetProps) 
         <button
           onClick={() => setOpen(o => !o)}
           className={cn(
-            'flex items-center gap-3 h-9 pl-3 pr-2 rounded-full border transition-colors',
+            'flex items-center gap-1.5 sm:gap-3 h-9 pl-2 pr-1.5 sm:pl-3 sm:pr-2 rounded-full border transition-colors',
             'bg-[var(--color-surface)] hover:bg-[var(--color-surface2)]',
             anyEmpty && !isPremium
               ? 'border-[color-mix(in_srgb,var(--color-danger)_30%,transparent)]'
@@ -237,29 +227,38 @@ export function CreditWidget({ className, compact = false }: CreditWidgetProps) 
           )}
         >
           {isPremium ? (
-            <div className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-primary)]">
-              <Crown size={13} />
-              <span>Premium</span>
+            <div className="flex items-center gap-1 sm:gap-1.5 text-sm">
+              <Crown size={13} className="text-[var(--color-primary)] shrink-0" />
+              <BookOpen size={13} className="text-[var(--color-muted)] hidden sm:inline shrink-0" />
+              <span className={cn('font-medium', balance.skill.remaining === 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-text)]')}>
+                {balance.skill.remaining}
+              </span>
+              <div className="w-px h-4 bg-[var(--color-border)]" />
+              <FolderOpen size={13} className="text-[var(--color-muted)] hidden sm:inline shrink-0" />
+              <span className={cn('font-medium', balance.project.remaining === 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-text)]')}>
+                {balance.project.remaining}
+              </span>
+              {anyLow && <AlertTriangle size={12} className="text-[var(--color-warning)] shrink-0" />}
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-1.5 text-sm">
-                <BookOpen size={13} className="text-[var(--color-muted)]" />
+              <div className="flex items-center gap-1 sm:gap-1.5 text-sm">
+                <BookOpen size={13} className="text-[var(--color-muted)] shrink-0" />
                 <span className={cn('font-medium', balance.skill.remaining === 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-text)]')}>
                   {balance.skill.remaining}
                 </span>
               </div>
               <div className="w-px h-4 bg-[var(--color-border)]" />
-              <div className="flex items-center gap-1.5 text-sm">
-                <FolderOpen size={13} className="text-[var(--color-muted)]" />
+              <div className="flex items-center gap-1 sm:gap-1.5 text-sm">
+                <FolderOpen size={13} className="text-[var(--color-muted)] shrink-0" />
                 <span className={cn('font-medium', balance.project.remaining === 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-text)]')}>
                   {balance.project.remaining}
                 </span>
               </div>
-              {anyLow && <AlertTriangle size={12} className="text-[var(--color-warning)]" />}
+              {anyLow && <AlertTriangle size={12} className="text-[var(--color-warning)] shrink-0" />}
             </>
           )}
-          <ChevronDown size={12} className={cn('text-[var(--color-muted)] transition-transform', open && 'rotate-180')} />
+          <ChevronDown size={12} className={cn('text-[var(--color-muted)] transition-transform hidden sm:inline', open && 'rotate-180')} />
         </button>
 
         {open && (
@@ -285,10 +284,10 @@ interface CreditGateProps {
 }
 
 export function CreditGate({ bucket, children, fallback }: CreditGateProps) {
-  const { balance, isPremium, canTakeExam, canEvalProject } = useCredits()
+  const { balance, canTakeExam, canEvalProject } = useCredits()
   const canProceed = bucket === 'skill' ? canTakeExam : canEvalProject
 
-  if (isPremium || canProceed) return <>{children}</>
+  if (canProceed) return <>{children}</>
 
   if (fallback) return <>{fallback}</>
 

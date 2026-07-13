@@ -1,16 +1,4 @@
-/**
- * Register.tsx — Updated to handle ?next= query param
- *
- * When a student clicks "Apply" on a job posting without being logged in,
- * they're sent here with ?next=/apply/:slug. After successful registration
- * they're redirected back to complete their profile (which then leads back
- * to the apply page).
- *
- * This page ONLY ever creates regular (developer/candidate) accounts.
- * Recruiter sign-up is a fully separate flow/page at /auth/register-recruiter
- * (OTP-based, backed by its own `Recruiter` table) — there is no role
- * switch here anymore.
- */
+
 
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -162,11 +150,11 @@ export default function Register() {
       >
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-9 h-9 rounded-xl bg-[var(--color-primary)] flex items-center justify-center">
-              <span className="text-[var(--color-inverse)] font-bold">DC</span>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden">
+              <img src="/assets/logo.svg" alt="Proeva" className="w-full h-full object-cover" />
             </div>
             <span className="text-xl font-bold text-[var(--color-text)]">
-              DevCert
+              Proeva
             </span>
           </Link>
 
@@ -337,13 +325,13 @@ export default function Register() {
           </Link>
           {!isApplyFlow && (
             <>
-              {" · "}
+              {/* {" · "}
               <Link
                 to="/auth/register-recruiter"
                 className="text-[var(--color-primary)] hover:text-[var(--color-primary-d)] font-medium transition-colors"
               >
-                Hire with DevCert
-              </Link>
+                Hire with Proeva
+              </Link> */}
             </>
           )}
         </p>

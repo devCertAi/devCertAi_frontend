@@ -31,7 +31,7 @@ function CertSeal({ color }: { color: string }) {
         d="M29 4 L30.5 16 L41 8 L34 19 L46 21 L35 26 L40 37 L29 31 L18 37 L23 26 L12 21 L24 19 L17 8 L27.5 16 Z"
         fill={color} opacity="0.18"
       />
-      <text x="29" y="33" textAnchor="middle" fontFamily="'Space Grotesk', sans-serif" fontSize="9" fill={color} fontWeight={700} opacity="0.95">DC</text>
+      <text x="29" y="33" textAnchor="middle" fontFamily="'Space Grotesk', sans-serif" fontSize="9" fill={color} fontWeight={700} opacity="0.95">PE</text>
     </svg>
   )
 }

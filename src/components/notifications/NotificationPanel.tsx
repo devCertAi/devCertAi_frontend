@@ -12,6 +12,9 @@ interface NotificationPanelProps { onClose: () => void }
 function resolveNotificationLink(n: { type: string; data?: Record<string, unknown> }): string | null {
   const data = n.data || {}
   switch (n.type) {
+    case 'evaluation_complete':
+    case 'evaluation_failed':
+      return data.projectId ? `/projects/${data.projectId}` : null
     case 'job_match':
       return data.slug ? `/apply/${data.slug}` : null
     case 'job_match_digest': {

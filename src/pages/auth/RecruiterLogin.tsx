@@ -185,10 +185,10 @@ export default function RecruiterLogin() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-9 h-9 rounded-xl bg-[var(--color-primary)] flex items-center justify-center">
-              <span className="text-[var(--color-inverse)] font-bold">DC</span>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden">
+              <img src="/assets/logo.svg" alt="Proeva" className="w-full h-full object-cover" />
             </div>
-            <span className="text-xl font-bold text-[var(--color-text)]">DevCert</span>
+            <span className="text-xl font-bold text-[var(--color-text)]">Proeva</span>
           </Link>
 
           {/* Recruiter badge */}
@@ -361,7 +361,7 @@ export default function RecruiterLogin() {
         </AnimatePresence>
 
         <p className="text-center text-sm text-[var(--color-muted)] mt-6">
-          New to DevCert?{' '}
+          New to Proeva?{' '}
           <Link
             to="/auth/register-recruiter"
             className="text-[var(--color-primary)] hover:text-[var(--color-primary-d)] font-medium transition-colors"

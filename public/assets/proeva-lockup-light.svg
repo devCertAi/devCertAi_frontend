@@ -1,0 +1,58 @@
+<svg width="420" height="120" viewBox="0 0 420 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg_g" cx="50%" cy="50%" r="90%">
+      <stop offset="0%" stop-color="#1A2028"/>
+      <stop offset="100%" stop-color="#0A0D12"/>
+    </radialGradient>
+    <linearGradient id="teal_g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F5D4"/>
+      <stop offset="100%" stop-color="#00A389"/>
+    </linearGradient>
+    <linearGradient id="violet_g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A78BFA"/>
+      <stop offset="100%" stop-color="#6D28D9"/>
+    </linearGradient>
+    <linearGradient id="teal_dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#008573"/>
+      <stop offset="100%" stop-color="#004D3F"/>
+    </linearGradient>
+    <linearGradient id="violet_dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5A3FCC"/>
+      <stop offset="100%" stop-color="#2E1A73"/>
+    </linearGradient>
+    <linearGradient id="glass_g" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glow_g" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00F5D4" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#00F5D4" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="border_g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2A313C" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#141A24" stop-opacity="0.8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon mark, scaled to 96px and vertically centered in the 120px canvas -->
+  <g transform="translate(12, 12) scale(0.16)">
+    <rect x="0" y="0" width="600" height="600" rx="140" fill="url(#bg_g)"/>
+    <rect x="2" y="2" width="596" height="596" rx="138" fill="none" stroke="url(#border_g)" stroke-width="2"/>
+    <circle cx="300" cy="288" r="180" fill="url(#glow_g)" />
+    <g transform="translate(44, 32)">
+      <polygon points="256,112 156,256 256,400" fill="url(#teal_g)"/>
+      <polygon points="256,112 356,256 256,400" fill="url(#violet_g)"/>
+      <polygon points="156,256 256,400 256,300" fill="url(#teal_dark)" opacity="0.85"/>
+      <polygon points="356,256 256,400 256,300" fill="url(#violet_dark)" opacity="0.85"/>
+      <polygon points="256,112 210,182 256,224" fill="#00F5D4" opacity="0.9"/>
+      <polygon points="256,112 302,182 256,224" fill="#C4B5FD" opacity="0.9"/>
+      <polygon points="256,112 200,160 256,240" fill="url(#glass_g)" opacity="0.15" />
+      <path d="M256,112 L256,400" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1.5" />
+      <path d="M156,256 L356,256" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1.5" />
+      <path d="M256,112 L210,182 L256,224 L302,182 Z" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="1" fill="none" />
+    </g>
+  </g>
+
+  <!-- Wordmark — light text for placement on dark surfaces -->
+  <text x="122" y="76" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-weight="700" font-size="46" letter-spacing="-0.5" fill="#161B25">Proeva</text>
+</svg>

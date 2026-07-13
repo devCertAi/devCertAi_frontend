@@ -27,10 +27,7 @@ export default function Login() {
   const isProfileFlow = !!(nextPath && nextPath.includes('/profile/'))
   const isExamFlow = !!(nextPath && nextPath.includes('/exam/'))
 
-  // If this login was triggered by a background token-refresh failure (e.g.
-  // session expired mid-exam), give a clear, reassuring message instead of
-  // silently dropping the person on the login screen. Cleared immediately so
-  // it doesn't reappear on a later, unrelated visit to this page.
+
   useEffect(() => {
     let flagged = false
     try { flagged = sessionStorage.getItem('sessionExpiredNotice') === '1' } catch {}
@@ -73,11 +70,7 @@ export default function Login() {
       toast.success('Welcome back!')
       navigate(resolveRedirect(freshUser?.role), { replace: true })
     } catch (err: any) {
-      // Same as above — the interceptor is 401-only, so a wrong password
-      // (401) does get redirected/handled elsewhere in some flows, but any
-      // other status (403 recruiter-account guard, 429 rate limit, etc.)
-      // needs its own message or the form just silently does nothing.
-      toast.error(err?.response?.data?.message || 'Invalid email or password')
+          toast.error(err?.response?.data?.message || 'Invalid email or password')
     }
   }
 
@@ -93,10 +86,10 @@ export default function Login() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md relative z-10">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-9 h-9 rounded-xl bg-[var(--color-primary)] flex items-center justify-center">
-              <span className="text-[var(--color-inverse)] font-bold">DC</span>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden">
+              <img src="/assets/logo.svg" alt="Proeva" className="w-full h-full object-cover" />
             </div>
-            <span className="text-xl font-bold text-[var(--color-text)]">DevCert</span>
+            <span className="text-xl font-bold text-[var(--color-text)]">Proeva</span>
           </Link>
 
           {isApplyFlow && (
@@ -191,8 +184,8 @@ export default function Login() {
           >
             Sign up as developer
           </Link>
-          {' · '}
-          <Link to="/auth/register-recruiter">Hire with DevCert</Link>
+          {/* {' · '} */}
+          {/* <Link to="/auth/register-recruiter">Hire with Proeva</Link> */}
         </p>
       </motion.div>
     </div>

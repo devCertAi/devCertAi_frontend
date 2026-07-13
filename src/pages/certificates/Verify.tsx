@@ -38,7 +38,7 @@ export default function Verify() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `devcert-${cert.verificationId}.pdf`
+      a.download = `proeva-${cert.verificationId}.pdf`
       a.click()
       window.URL.revokeObjectURL(url)
     } catch {
@@ -62,7 +62,7 @@ export default function Verify() {
       <div className="text-center">
         <p className="text-xl font-semibold text-[var(--color-text)] mb-2">Certificate Not Found</p>
         <p className="text-[var(--color-muted)]">This certificate ID doesn't exist or was revoked.</p>
-        <Link to="/" className="text-[var(--color-primary)] hover:underline text-sm mt-4 block">← Back to DevCert</Link>
+        <Link to="/" className="text-[var(--color-primary)] hover:underline text-sm mt-4 block">← Back to Proeva</Link>
       </div>
     </div>
   )
@@ -86,14 +86,14 @@ export default function Verify() {
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 bg-[var(--color-primary)] rounded-lg flex items-center justify-center">
-              <span className="text-[var(--color-inverse)] font-bold text-sm">DC</span>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
+              <img src="/assets/logo.svg" alt="Proeva" className="w-full h-full object-cover" />
             </div>
-            <span className="font-bold text-[var(--color-text)]">DevCert</span>
+            <span className="font-bold text-[var(--color-text)]">Proeva</span>
           </Link>
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-[color-mix(in_srgb,var(--color-success)_10%,transparent)] border border-[color-mix(in_srgb,var(--color-success)_20%,transparent)] rounded-full mb-4">
             <CheckCircle size={16} className="text-[var(--color-success)]" />
-            <span className="text-sm font-medium text-[var(--color-success)]">Verified by DevCert AI</span>
+            <span className="text-sm font-medium text-[var(--color-success)]">Verified by Proeva AI</span>
           </div>
         </div>
 

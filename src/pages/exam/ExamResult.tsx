@@ -14,35 +14,7 @@ import api from '@/services/api'
 import toast from 'react-hot-toast'
 import { useComboStore } from '@/store/comboStore'
 
-/**
- * ExamResult — Result display after Phase 1 or Phase 2 exam
- *
- * BUGS FIXED:
- * 1. NO POLLING — exam grading is async (processed by Bull queue). The page
- *    loaded the attempt ONCE. If the queue hadn't finished, users saw a blank
- *    score forever. Added polling every 3s until status = 'completed'.
- * 2. Status mismatch: backend sets status='completed', but ExamAttempt type
- *    listed status as 'graded'. The passed check and certificate render used
- *    wrong status. Fixed to use 'completed'.
- * 3. Phase 1 result had NO call-to-action to start Phase 2. If you passed
- *    Phase 1, there was nothing guiding you to Phase 2. Added Phase 2 CTA.
- * 4. Certificate button appeared only if attempt.certificate existed — but
- *    certificate is generated asynchronously AFTER grading. Button now shows
- *    after a short delay to allow cert generation.
- * 5. Score threshold: ExamResult said pass = score >= 60, but backend
- *    hasPassedPhase1 uses score >= 50. Aligned to 50.
- * 6. Terminated attempts showed "Congratulations" if score happened to be >=50
- *    via a calculation bug. Fixed: terminated = always failed display.
- * 7. COMBO FLOW REWORK: Phase 1 used to auto-grade AND auto-start Phase 2
- *    silently, flashing the Phase 1 score/pass state for a moment before
- *    redirecting. Now Phase 1's score is not revealed at all mid-combo —
- *    the candidate sees a neutral "Phase 1 complete" screen with an explicit
- *    "Continue to Phase 2" button, and Phase 2 is only started when they
- *    click it. The combined score (both phases) is calculated and shown
- *    together once Phase 2 finishes, alongside a full question-by-question
- *    review of both phases (right/wrong, given vs correct answer, and an
- *    explanation for anything marked wrong).
- */
+
 
 const POLL_INTERVAL_MS = 5000
 const MAX_POLL_ATTEMPTS = 24 // 2 minutes max (24 × 5s)
@@ -264,11 +236,7 @@ export default function ExamResult() {
   const terminated = attempt.status === 'terminated'
   const passed = !terminated && (attempt.totalScore ?? 0) >= 50
 
-  // Combo gate: Phase 1 just passed and this run is still an active combo —
-  // show a neutral "continue" screen instead of the score. (Failed/
-  // terminated Phase 1 combo runs fall through to the normal result screen
-  // below since comboClear() already fired for those and there's nothing
-  // left to gate.)
+ 
   const comboGateActive = isPhase1 && comboActive && comboDomain === attempt.domain && passed
 
   if (comboGateActive) {
@@ -292,10 +260,7 @@ export default function ExamResult() {
     )
   }
 
-  // Combined combo score — once Phase 2 is done and we have the paired
-  // Phase 1 attempt, the headline score/level shown is the average of both
-  // phases rather than just this (Phase 2) attempt's score, since that's
-  // what a "combo" pass actually represents.
+
   const hasCombinedView = isPhase2 && !!pairedPhase1 &&
     (pairedPhase1.status === 'completed' || pairedPhase1.status === 'terminated')
   const phase1Score = pairedPhase1?.totalScore ?? 0
@@ -421,14 +386,9 @@ export default function ExamResult() {
           </Card>
         )}
 
-        {/* Detailed Q&A review — which Phase 1 answers were wrong (with the
-            correct answer + why), and per-question Phase 2 feedback (why an
-            answer scored what it did and what the stronger answer looks
-            like). Collapsed by default to keep the pass/fail summary above
-            the fold. */}
+   
         {hasReviewData && (
-          <Card className="w-full p-0 mb-6 text-left overflow-hidden">
-            <button
+        <Card className="w-full max-w-9xl p-0 mb-6 text-left overflow-hidden">            <button
               onClick={() => setShowReview((v) => !v)}
               className="w-full flex items-center justify-between px-4 py-3.5 text-sm font-medium text-[var(--color-text)]"
             >

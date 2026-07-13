@@ -190,7 +190,7 @@ function GuestView({ posting, slug }: { posting: Posting; slug: string }) {
           </div>
           <h2 className="text-lg font-bold text-[var(--color-text)] mb-2">Create an account to apply</h2>
           <p className="text-[var(--color-muted)] text-sm mb-6 max-w-xs mx-auto">
-            You need a DevCert account with a complete profile to apply. It only takes a minute.
+            You need a Proeva account with a complete profile to apply. It only takes a minute.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button
@@ -720,7 +720,7 @@ function ApplyForm({ data, slug }: { data: PreflightData; slug: string }) {
           Submit Application <ArrowRight size={16} />
         </Button>
         <p className="text-xs text-[var(--color-muted)] text-center mt-3">
-          Your application uses data from your DevCert profile — not just your CV.
+          Your application uses data from your Proeva profile — not just your CV.
         </p>
       </div>
     </div>

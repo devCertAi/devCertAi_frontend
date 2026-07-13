@@ -60,7 +60,7 @@ export default function Postings() {
       <PageWrapper className="bg-[var(--color-bg)] pl-0 lg:pl-56">
         <div className="max-w-xl mx-auto py-16 px-4 text-center">
           <Briefcase size={36} className="text-[var(--color-primary)] mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-[var(--color-text)] mb-2">Hire from the DevCert talent pool</h1>
+          <h1 className="text-xl font-bold text-[var(--color-text)] mb-2">Hire from the Proeva talent pool</h1>
           <p className="text-[var(--color-muted)] text-sm mb-6">
             Post a job, get AI-screened candidates ranked automatically by skill match, project quality, and
             assessment scores — no manual resume sifting.

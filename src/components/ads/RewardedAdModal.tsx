@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/Button'
 import { AdBanner } from './AdBanner'
 import api from '@/services/api'
 import toast from 'react-hot-toast'
-import { usePremium } from '@/components/premium/PremiumGate'
 import { refreshCredits } from '@/hooks/useCredits'
 
 const WATCH_SECONDS = 15
@@ -90,8 +89,9 @@ export function RewardedAdModal({ open, onClose, bucket = 'project', onRewarded 
 }
 
 /**
- * RewardedAdButton — drop-in trigger + modal in one. Hidden automatically
- * for premium users (they already have unlimited credits).
+ * RewardedAdButton — drop-in trigger + modal in one. No plan is unlimited
+ * anymore, so this is available to premium accounts too once their
+ * purchased credits run low.
  */
 export function RewardedAdButton({
   bucket = 'project',
@@ -103,9 +103,6 @@ export function RewardedAdButton({
   className?: string
 }) {
   const [open, setOpen] = useState(false)
-  const { isPremium } = usePremium()
-
-  if (isPremium) return null
 
   return (
     <>

@@ -86,7 +86,7 @@ const FAQS = [
   { q: 'How is pricing calculated?', a: 'Pricing is per active posting or via monthly subscription for multiple concurrent postings. See the pricing section below for details.' },
   { q: 'Can I message candidates directly?', a: 'Yes. Once a candidate is in your pipeline, you can message them directly from the recruiter dashboard. They receive both an in-app notification and an email.' },
   { q: "Is my candidates' data private?", a: "Candidate data is used only to process their application to your posting. It is never shared with other recruiters or used to train AI models." },
-  { q: 'Can I use DevCert for full-time hiring too?', a: 'Yes. The pipeline works equally well for internships and full-time roles. You set the role type, requirements, and pipeline stages when creating a posting.' },
+  { q: 'Can I use Proeva for full-time hiring too?', a: 'Yes. The pipeline works equally well for internships and full-time roles. You set the role type, requirements, and pipeline stages when creating a posting.' },
   { q: 'What does the assignment stage look like for candidates?', a: 'After being shortlisted, candidates receive an email with your assignment brief and a submission deadline. They submit via GitHub link or zip file. Results are automatically evaluated and fed into their final score.' },
 ]
 
@@ -179,11 +179,10 @@ export default function HiringLanding() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: 'var(--gradient-brand)' }}>
-                <span className="text-[var(--color-inverse)] font-bold text-sm">DC</span>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
+                <img src="/assets/logo.svg" alt="Proeva" className="w-full h-full object-cover" />
               </div>
-              <span className="font-bold text-lg" style={{ color: 'var(--color-text)' }}>DevCert</span>
+              <span className="font-bold text-lg" style={{ color: 'var(--color-text)' }}>Proeva</span>
               <Badge variant="muted" className="text-[10px] hidden sm:flex">for Recruiters</Badge>
             </Link>
             <div className="flex items-center gap-3">
@@ -234,7 +233,7 @@ export default function HiringLanding() {
               className="text-lg max-w-2xl mx-auto mb-8 leading-relaxed"
               style={{ color: 'var(--color-muted)' }}
             >
-              Post a role. DevCert screens every applicant against your requirements, sends them a real assignment,
+              Post a role. Proeva screens every applicant against your requirements, sends them a real assignment,
               runs a personalised assessment, and delivers a ranked shortlist — automatically.
             </motion.p>
             <motion.div
@@ -314,7 +313,7 @@ export default function HiringLanding() {
           <div className="max-w-5xl mx-auto">
             <ScrollReveal>
               <div className="text-center mb-14">
-                <p className="font-mono text-[11px] uppercase tracking-widest mb-3" style={{ color: 'var(--color-secondary)' }}>Why DevCert</p>
+                <p className="font-mono text-[11px] uppercase tracking-widest mb-3" style={{ color: 'var(--color-secondary)' }}>Why Proeva</p>
                 <h2 className="font-bold text-3xl mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--color-text)', letterSpacing: '-0.02em' }}>
                   Built to fix what's broken in hiring
                 </h2>
@@ -351,7 +350,7 @@ export default function HiringLanding() {
                   We screen on verified profile data,<br />not CV formatting
                 </h2>
                 <p className="text-sm max-w-lg mx-auto" style={{ color: 'var(--color-muted)' }}>
-                  Every DevCert candidate maintains a structured profile — verified skills, education, experience,
+                  Every Proeva candidate maintains a structured profile — verified skills, education, experience,
                   and portfolio links. Screening happens against this structured data, so you see actual capability,
                   not keyword density.
                 </p>
@@ -390,7 +389,7 @@ export default function HiringLanding() {
                     A ranked shortlist you can trust
                   </h2>
                   <p className="text-sm leading-relaxed mb-5" style={{ color: 'var(--color-muted)' }}>
-                    After assessment completion, DevCert runs a final weighted ranking across all four pipeline scores.
+                    After assessment completion, Proeva runs a final weighted ranking across all four pipeline scores.
                     You control the weights — prioritise project quality for senior roles, or assessment speed for 
                     high-volume hiring.
                   </p>

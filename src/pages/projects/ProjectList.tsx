@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, Trash2 } from "lucide-react";  // ✅ add Trash2
+import { Plus, Search, Trash2, RefreshCw } from "lucide-react";  // ✅ add Trash2
 import { Project } from "@/types";
 import { PageWrapper } from "@/components/layout/PageWrapper";
 import { Card } from "@/components/ui/Card";
@@ -13,14 +13,17 @@ import { formatDate, getScoreColor } from "@/lib/utils";
 import api from "@/services/api";
 import toast from "react-hot-toast";
 import React from "react";
-import { useSocket } from "@/hooks/useSocket";
+import { useProjectUpdates } from "@/hooks/useSocket";
+import { useCredits } from "@/hooks/useCredits";
 import { useAuthStore } from "@/store/authStore";
 
 export default function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [reEvaluatingId, setReEvaluatingId] = useState<string | null>(null);
   const { user } = useAuthStore();
+  const { refetch: refetchCredits } = useCredits();
 
   const fetchProjects = useCallback(() => {
     api.get('/projects')
@@ -33,13 +36,35 @@ export default function ProjectList() {
 
   // FIX: update the card in-place when evaluation finishes so the status badge
   // and score appear immediately without a full reload.
-  useSocket(user?.id, (data) => {
+  useProjectUpdates(user?.id, (data) => {
     setProjects(prev => prev.map(p =>
       p.id === data.projectId
         ? { ...p, status: data.status as Project['status'], score: data.score, level: data.level as Project['level'] }
         : p
     ));
+    // FIX: a failed evaluation refunds the credit charged at submission
+    // (see projectWorker.js) — refresh the (globally cached) credit balance
+    // so it doesn't keep showing stale, already-deducted numbers.
+    refetchCredits();
   });
+
+  const handleReEvaluate = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setReEvaluatingId(id);
+    try {
+      await api.post(`/projects/${id}/re-evaluate`);
+      setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'pending' as Project['status'] } : p));
+      toast.success('Re-evaluation started');
+      // Re-evaluating charges a credit immediately — reflect it right away
+      // instead of waiting for the socket event on completion.
+      refetchCredits();
+    } catch {
+      toast.error("Couldn't start re-evaluation");
+    } finally {
+      setReEvaluatingId(null);
+    }
+  };
 
   // ✅ delete handler
   const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -63,15 +88,15 @@ export default function ProjectList() {
 
   return (
     <PageWrapper className="bg-[var(--color-bg)] pl-0 lg:pl-39">
-      <div className="min-w-5xl px-9 pt-8 pb-16">
-        <div className="flex items-center justify-between mb-4">
+      <div className="px-4 sm:px-6 lg:px-9 pt-8 pb-16">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-[var(--color-text)]">My Projects</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-text)]">My Projects</h1>
             <p className="text-[var(--color-muted)] text-sm mt-0.5">
               {projects.length} projects submitted
             </p>
           </div>
-          <Link to="/submit">
+          <Link to="/submit" className="self-start sm:self-auto">
             <Button size="sm"><Plus size={15} /> New Project</Button>
           </Link>
         </div>
@@ -118,7 +143,12 @@ export default function ProjectList() {
 
                    <div className="flex items-start justify-between mb-3 pr-8">
 
-                      <Badge variant={p.status === "completed" ? "success" : p.status === "evaluating" ? "warning" : "muted"}>
+                      <Badge variant={
+                        p.status === "completed" ? "success"
+                          : p.status === "evaluating" ? "warning"
+                          : p.status === "failed" ? "danger"
+                          : "muted"
+                      }>
                         {p.status}
                       </Badge>
                       {p.score != null && (
@@ -132,6 +162,16 @@ export default function ProjectList() {
                       {p.domain} · {formatDate(p.createdAt)}
                     </p>
                     {p.level && <span className="text-xs text-[var(--color-muted)]">{p.level}</span>}
+                    {p.status === "failed" && (
+                      <button
+                        onClick={(e) => handleReEvaluate(e, p.id)}
+                        disabled={reEvaluatingId === p.id}
+                        className="mt-3 flex items-center gap-1.5 text-xs font-medium text-[var(--color-primary)] hover:underline disabled:opacity-50"
+                      >
+                        <RefreshCw size={12} className={reEvaluatingId === p.id ? "animate-spin" : ""} />
+                        {reEvaluatingId === p.id ? "Starting…" : "Re-evaluate"}
+                      </button>
+                    )}
                   </Card>
                 </Link>
                 {(i + 1) % 4 === 0 && (

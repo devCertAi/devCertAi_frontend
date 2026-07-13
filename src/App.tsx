@@ -58,10 +58,11 @@ import RecruiterProfile from '@/pages/recruiter/RecruiterProfile'
 import ApplicationDetail from '@/pages/applications/ApplicationDetail'
 import ExamGate from '@/pages/applications/ExamGate'
 import About from './pages/footer/About'
-import { Contact } from 'lucide-react'
 import PrivacyPolicy from './pages/footer/PrivacyPolicy'
 import TermsOfService from './pages/footer/TermsOfService'
 import CookiePolicy from './pages/footer/CookiePolicy'
+import Contact from './pages/footer/Contact'
+
 
 
 // Routes that hide the nav/sidebar (full-screen experiences)
