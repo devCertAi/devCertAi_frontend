@@ -584,7 +584,9 @@ const tabs: { id: Tab; label: string }[] = [
                           <Download size={14} /> Download Certificate
                         </Button>
                       )}
-                      <Button variant="ghost" className="w-full" size="sm"><RefreshCw size={14} /> Re-evaluate</Button>
+                      <Button variant="ghost" className="w-full" size="sm" onClick={handleReEvaluate} loading={reEvaluating} disabled={reEvaluating}>
+                        <RefreshCw size={14} /> Re-evaluate
+                      </Button>
                       <Button variant="ghost" className="w-full" size="sm"
                         onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/profile/${project.user?.username}`); toast.success("Profile link copied!"); }}>
                         <ExternalLink size={14} /> Copy Profile Link
