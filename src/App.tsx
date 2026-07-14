@@ -8,7 +8,7 @@
  * 4. Added /hiring route for standalone hiring landing (Req 5)
  */
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from '@/store/authStore'
@@ -93,13 +93,37 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     !isOtherProfile &&
     !isHiringRoute
 
+  // Sidebar is rendered as a static rail on desktop and a slide-in drawer on
+  // mobile/tablet. The Navbar's hamburger button toggles the drawer when one
+  // is present for the current route.
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Close the drawer whenever the route changes (e.g. after tapping a link).
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [location.pathname])
+
+  // Prevent background scroll while the drawer is open on mobile/tablet.
+  useEffect(() => {
+    document.body.style.overflow = sidebarOpen ? 'hidden' : ''
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [sidebarOpen])
+
   // Recruiter users get the recruiter sidebar — handled inside Sidebar component
   if (isAuthRoute || isExamRoom) return <>{children}</>
 
   return (
     <>
-      <Navbar />
-      {showSidebar && <Sidebar />}
+      <Navbar
+        hasSidebar={showSidebar}
+        sidebarOpen={sidebarOpen}
+        onMenuClick={() => setSidebarOpen((v) => !v)}
+      />
+      {showSidebar && (
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      )}
       <main className={`pt-16 ${showSidebar ? 'lg:pl-56' : ''}`}>
         {children}
       </main>

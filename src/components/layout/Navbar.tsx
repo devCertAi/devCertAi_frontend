@@ -17,7 +17,13 @@ import { ThemeSwitch } from "@/components/ui/ThemeSwitch";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
 import { CreditWidget } from "@/components/credits/CreditWidget";
 
-export function Navbar() {
+interface NavbarProps {
+  hasSidebar?: boolean;
+  sidebarOpen?: boolean;
+  onMenuClick?: () => void;
+}
+
+export function Navbar({ hasSidebar, sidebarOpen, onMenuClick }: NavbarProps) {
   const { user, isAuthenticated, logout } = useAuthStore();
   const { unreadCount } = useNotificationStore();
   const [showNotifs, setShowNotifs] = useState(false);
@@ -46,7 +52,6 @@ export function Navbar() {
           { href: "/projects", label: "Projects" },
           { href: "/exam", label: "Exams" },
           { href: "/certificates", label: "Certificates" },
-          // { href: "/recruiting", label: "Recruiting" },
           { href: "/pricing", label: "Pricing" },
         ];
 
@@ -65,59 +70,65 @@ export function Navbar() {
     >
       <div className="max-w-9xl mx-auto pl-2 pr-4 sm:pl-3 sm:pr-6 lg:pl-4 lg:pr-8">
         <div className="flex items-center justify-between h-16 sm:h-[4.5rem]">
-        
-          <Link to="/" className="flex items-center gap-2 shrink-0 mr-2">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center overflow-hidden shrink-0">
-              <img src="/assets/logo.svg" alt="Proeva" className="w-full h-full object-cover" />
-            </div>
-            <span
-              className="font-bold text-xl sm:text-2xl tracking-tight"
-              style={{ color: "var(--color-text)" }}
-            >
-              Proeva
-            </span>
-          </Link>
-
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                className="px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                style={{
-                  color: location.pathname.startsWith(link.href)
-                    ? "var(--color-text)"
-                    : "var(--color-muted)",
-                  background: location.pathname.startsWith(link.href)
-                    ? "var(--color-surface2)"
-                    : "transparent",
-                }}
+          {/* ========== LEFT: sidebar toggle (mobile only) + logo ========== */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {hasSidebar && (
+              <button
+                onClick={onMenuClick}
+                aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+                aria-expanded={!!sidebarOpen}
+                className="lg:hidden p-2 -ml-2 sm:ml-0 rounded-lg transition-colors hover:bg-[var(--color-surface2)]"
+                style={{ color: "var(--color-muted)" }}
               >
-                {link.label}
-              </Link>
-            ))}
+                {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+            )}
+            <Link to="/" className="flex items-center gap-2 shrink-0">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center overflow-hidden shrink-0">
+                <img src="/assets/logo.svg" alt="Proeva" className="w-full h-full object-cover" />
+              </div>
+              <span
+                className="font-bold text-xl sm:text-2xl tracking-tight"
+                style={{ color: "var(--color-text)" }}
+              >
+                Proeva
+              </span>
+            </Link>
           </div>
 
-          {/* Right side — tighter gap on phones so the icon cluster doesn't
-              crowd the edge now that the logo takes up more room */}
+          {/* Desktop nav links – only when NO sidebar */}
+          {!hasSidebar && (
+            <div className="hidden md:flex items-center gap-1">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  to={link.href}
+                  className="px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                  style={{
+                    color: location.pathname.startsWith(link.href)
+                      ? "var(--color-text)"
+                      : "var(--color-muted)",
+                    background: location.pathname.startsWith(link.href)
+                      ? "var(--color-surface2)"
+                      : "transparent",
+                  }}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* ========== RIGHT: icons, user menu, mobile inline toggle ========== */}
           <div className="flex items-center gap-1 sm:gap-2">
             <ThemeSwitch />
 
             {isAuthenticated ? (
               <>
-                {/* Credit balance — students only, hidden for recruiter/admin.
-                    This used to be `hidden sm:flex`, which meant it never
-                    rendered at all on any phone (< 640px) — the credit UI
-                    wasn't broken, it just never showed up on mobile. Now it
-                    always renders; `compactness` below trims its padding
-                    and hides the chevron/labels on the smallest screens so
-                    it still fits next to the other icons. */}
                 {!isRecruiter && !isAdmin && (
                   <CreditWidget compact className="flex" />
                 )}
 
-                {/* Notifications — sirf normal user ko */}
                 {!isRecruiter && !isAdmin && (
                   <div className="relative">
                     <button
@@ -199,6 +210,7 @@ export function Navbar() {
                           border: "1px solid var(--color-border)",
                         }}
                       >
+                        {/* ... (user menu content unchanged) ... */}
                         <div
                           className="p-3"
                           style={{
@@ -248,7 +260,6 @@ export function Navbar() {
                         </div>
 
                         <div className="p-1">
-                          {/* Dashboard — role-based */}
                           <Link
                             to={
                               isRecruiter
@@ -264,7 +275,6 @@ export function Navbar() {
                             <User size={15} /> Dashboard
                           </Link>
 
-                          {/* Profile — role-aware, hidden for admin */}
                           {!isAdmin && (
                             <Link
                               to={
@@ -323,29 +333,31 @@ export function Navbar() {
                   Login
                 </Button>
                 <Button size="sm" onClick={() => navigate("/auth/register")}>
-                  {/* "Get Started" wraps/crowds next to Login + the hamburger
-                      on narrow phones — shorten it below the sm breakpoint */}
                   <span className="hidden sm:inline">Get Started</span>
                   <span className="sm:hidden">Sign up</span>
                 </Button>
               </div>
             )}
 
-            {/* Mobile menu toggle */}
-            <button
-              className="md:hidden p-2 rounded-lg transition-colors"
-              style={{ color: "var(--color-muted)" }}
-              onClick={() => setMobileOpen(!mobileOpen)}
-            >
-              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
+            {/* Inline mobile menu toggle – only when NO sidebar exists */}
+            {!hasSidebar && (
+              <button
+                className="md:hidden p-2 rounded-lg transition-colors hover:bg-[var(--color-surface2)]"
+                style={{ color: "var(--color-muted)" }}
+                onClick={() => setMobileOpen((v) => !v)}
+                aria-label={mobileOpen ? "Close menu" : "Open menu"}
+                aria-expanded={mobileOpen}
+              >
+                {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Inline mobile menu dropdown */}
       <AnimatePresence>
-        {mobileOpen && (
+        {!hasSidebar && mobileOpen && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}

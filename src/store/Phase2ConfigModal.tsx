@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Clock, Layers } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
@@ -68,7 +69,13 @@ export function Phase2ConfigModal({
     return baseBufferSec + secPerQuestion * questionCount
   }, [selectedDifficulty, questionCount, baseBufferSec])
 
-  return (
+  // Portaled to document.body (see components/ui/Modal.tsx for why): this
+  // modal is opened from a page wrapped in <PageWrapper>, a framer-motion
+  // div that animates via an inline `transform`, which becomes the
+  // containing block for any `position: fixed` descendant — without the
+  // portal this backdrop renders as a small black box instead of a
+  // full-screen overlay.
+  return createPortal(
     <AnimatePresence>
       <motion.div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
@@ -180,6 +187,7 @@ export function Phase2ConfigModal({
           </Card>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Award, Download, Share2, Eye, EyeOff, ExternalLink, X, ZoomIn } from 'lucide-react'
 import { Certificate } from '@/types'
@@ -449,7 +450,18 @@ body {
   const blob = new Blob([html], { type: 'text/html' })
   const src = URL.createObjectURL(blob)
 
-  return (
+  // FIX (black-screen bug): this modal used to be returned directly from
+  // this component's render tree. Every page is wrapped in <PageWrapper>,
+  // which is a framer-motion `motion.div` that animates `y` via an inline
+  // CSS `transform`. Any ancestor with a `transform` other than `none`
+  // becomes the containing block for `position: fixed` descendants — so
+  // this modal's "fixed inset-0" backdrop was being sized/positioned
+  // relative to PageWrapper's box instead of the real viewport, which is
+  // exactly why it rendered as a small black rectangle pinned to the
+  // top-left instead of a full-screen dark backdrop with the certificate
+  // centered on top. Portaling straight to document.body escapes that
+  // transformed ancestor entirely, so `fixed` behaves correctly again.
+  return createPortal(
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
@@ -516,7 +528,8 @@ body {
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
 

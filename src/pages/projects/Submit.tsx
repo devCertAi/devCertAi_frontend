@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { GitBranch, Globe, Upload, CheckCircle, Loader, Gauge, AlertTriangle } from "lucide-react";
+import { GitBranch, Globe, Upload, CheckCircle, Gauge, AlertTriangle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/Input";
@@ -47,41 +47,39 @@ export default function Submit() {
   const [submitted, setSubmitted] = useState(false);
   const [projectId, setProjectId] = useState("");
   const [githubValid, setGithubValid] = useState<boolean | null>(null);
-  // Add these states at top of component
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-const projectIdRef = useRef("");
-const { isPremium } = usePremium();
-const [showAdGate, setShowAdGate] = useState(false);
-const [pendingSubmitData, setPendingSubmitData] = useState<ProjectSubmitInput | null>(null);
+  const projectIdRef = useRef("");
+  const { isPremium } = usePremium();
+  const [showAdGate, setShowAdGate] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState<ProjectSubmitInput | null>(null);
 
- 
-const [sizeEstimate, setSizeEstimate] = useState<SizeEstimate | null>(null);
-const [estimating, setEstimating] = useState(false);
-const estimateRequestId = useRef(0);
+  const [sizeEstimate, setSizeEstimate] = useState<SizeEstimate | null>(null);
+  const [estimating, setEstimating] = useState(false);
+  const estimateRequestId = useRef(0);
 
-const fetchSizeEstimate = async (source: { githubUrl?: string; liveUrl?: string; zipFile?: File }) => {
-  const requestId = ++estimateRequestId.current;
-  setEstimating(true);
-  try {
-    const formData = new FormData();
-    if (source.githubUrl) formData.append("githubUrl", source.githubUrl);
-    else if (source.liveUrl) formData.append("liveUrl", source.liveUrl);
-    else if (source.zipFile) formData.append("zipFile", source.zipFile);
-    else return;
+  const fetchSizeEstimate = async (source: { githubUrl?: string; liveUrl?: string; zipFile?: File }) => {
+    const requestId = ++estimateRequestId.current;
+    setEstimating(true);
+    try {
+      const formData = new FormData();
+      if (source.githubUrl) formData.append("githubUrl", source.githubUrl);
+      else if (source.liveUrl) formData.append("liveUrl", source.liveUrl);
+      else if (source.zipFile) formData.append("zipFile", source.zipFile);
+      else return;
 
-    const { data } = await api.post("/projects/estimate-size", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    if (requestId === estimateRequestId.current) setSizeEstimate(data.data);
-  } catch {
-    if (requestId === estimateRequestId.current) setSizeEstimate(null);
-  } finally {
-    if (requestId === estimateRequestId.current) setEstimating(false);
-  }
-};
+      const { data } = await api.post("/projects/estimate-size", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (requestId === estimateRequestId.current) setSizeEstimate(data.data);
+    } catch {
+      if (requestId === estimateRequestId.current) setSizeEstimate(null);
+    } finally {
+      if (requestId === estimateRequestId.current) setEstimating(false);
+    }
+  };
 
   const {
     register,
@@ -90,41 +88,31 @@ const fetchSizeEstimate = async (source: { githubUrl?: string; liveUrl?: string;
     formState: { errors },
   } = useForm<ProjectSubmitInput>({
     resolver: zodResolver(projectSubmitSchema),
-    // ✅ remove defaultValues entirely, or just:
     defaultValues: { title: "", description: "", githubUrl: "", liveUrl: "" },
   });
 
   const githubUrl = watch("githubUrl");
 
-  // Zip files are already on the client, so estimate as soon as one is
-  // picked/dropped — no need to wait for blur.
+  // Auto‑estimate on ZIP file change
   useEffect(() => {
     if (method === "zip" && zipFile) fetchSizeEstimate({ zipFile });
     if (method === "zip" && !zipFile) setSizeEstimate(null);
   }, [zipFile, method]);
 
-  // Switching methods invalidates whatever estimate we had.
   const switchMethod = (m: SubmitMethod) => {
     setMethod(m);
     setSizeEstimate(null);
   };
 
-  // Guards out-of-order responses: if the user pastes a new link before an
-  // in-flight validation for the OLD link resolves, the old link's response
-  // (whichever one happens to arrive last) must not overwrite the state.
   const githubValidateRequestId = useRef(0);
 
   const runGithubValidation = async (url: string) => {
     const requestId = ++githubValidateRequestId.current;
     try {
-      // FIX: this was POSTing { githubUrl } to a route that's only
-      // registered as GET and reads `req.query.url` — every call 404'd,
-      // so githubValid was always forced to false and the URL always
-      // showed as "not found or not public" even for a perfectly valid repo.
       const { data } = await api.get("/projects/validate-github", {
         params: { url },
       });
-      if (requestId !== githubValidateRequestId.current) return; // superseded
+      if (requestId !== githubValidateRequestId.current) return;
       const validation = data.data ?? data;
       const isValid = !!validation.valid && validation.isPublic !== false;
       setGithubValid(isValid);
@@ -136,19 +124,18 @@ const fetchSizeEstimate = async (source: { githubUrl?: string; liveUrl?: string;
       setSizeEstimate(null);
     }
   };
- 
+
   useEffect(() => {
     if (method !== "github") return;
     const url = githubUrl?.trim();
     setGithubValid(null);
     setSizeEstimate(null);
-    githubValidateRequestId.current++; // invalidate any in-flight check for the previous value
+    githubValidateRequestId.current++;
     if (!url) return;
     const timer = setTimeout(() => runGithubValidation(url), 500);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [githubUrl, method]);
- 
+
   const validateGithub = () => {
     const url = githubUrl?.trim();
     if (url) runGithubValidation(url);
@@ -165,7 +152,7 @@ const fetchSizeEstimate = async (source: { githubUrl?: string; liveUrl?: string;
       return toast.error("Please enter a live URL");
     if (method === "zip" && !zipFile)
       return toast.error("Please upload a ZIP file");
- 
+
     if (isPremium) {
       return doSubmit(data);
     }
@@ -174,7 +161,6 @@ const fetchSizeEstimate = async (source: { githubUrl?: string; liveUrl?: string;
   };
 
   const doSubmit = async (data: ProjectSubmitInput) => {
-    console.log("onSubmit fired", data, selectedDomain, method);
     setLoading(true);
     try {
       const domain =
@@ -193,23 +179,18 @@ const fetchSizeEstimate = async (source: { githubUrl?: string; liveUrl?: string;
       const { data: res } = await api.post("/projects/submit", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      console.log("API response:", res);
       projectIdRef.current = res.data.projectId;
-setProjectId(res.data.projectId);
-setSubmitted(true);
-setStep(3);
+      setProjectId(res.data.projectId);
+      setSubmitted(true);
+      setStep(3);
     } catch (err: any) {
-      console.error("Submit error:", err.response?.data);
-      console.error(
-        "Validation errors:",
-        JSON.stringify(err.response?.data?.errors, null, 2),
-      );
       toast.error(err.response?.data?.message || "Submission failed");
     } finally {
       setLoading(false);
     }
   };
 
+  // ────── Success screen ──────
   if (submitted) {
     return (
       <PageWrapper className="bg-[var(--color-bg)] pl-0 lg:pl-56">
@@ -229,8 +210,7 @@ setStep(3);
               minutes. We'll notify you when done.
             </p>
             <div className="flex gap-3 justify-center mb-8">
-              <Button // WITH:
-onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
+              <Button onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
                 View Project
               </Button>
               <Button variant="outline" onClick={() => navigate("/dashboard")}>
@@ -247,6 +227,7 @@ onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
     );
   }
 
+  // ────── Submission form ──────
   return (
     <PageWrapper className="bg-[var(--color-bg)] pl-0 lg:pl-56">
       <InterstitialAdModal
@@ -264,7 +245,6 @@ onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
             Submit a Project
           </h1>
           <p className="text-[var(--color-muted)] text-sm">Get AI evaluation in minutes</p>
-          {/* Steps */}
           <div className="flex items-center gap-3 mt-5">
             {[1, 2].map((s) => (
               <div key={s} className="flex items-center gap-2">
@@ -368,24 +348,11 @@ onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
               <h3 className="text-sm font-medium text-[var(--color-text)] mb-4">
                 Project Source
               </h3>
-              {/* Method tabs */}
               <div className="flex gap-1 p-1 bg-[var(--color-bg)] rounded-xl mb-4">
                 {[
-                  {
-                    id: "github",
-                    label: "GitHub URL",
-                    icon: <GitBranch size={14} />,
-                  },
-                  {
-                    id: "liveurl",
-                    label: "Live URL",
-                    icon: <Globe size={14} />,
-                  },
-                  {
-                    id: "zip",
-                    label: "Upload ZIP",
-                    icon: <Upload size={14} />,
-                  },
+                  { id: "github", label: "GitHub URL", icon: <GitBranch size={14} /> },
+                  { id: "liveurl", label: "Live URL", icon: <Globe size={14} /> },
+                  { id: "zip", label: "Upload ZIP", icon: <Upload size={14} /> },
                 ].map(({ id, label, icon }) => (
                   <button
                     key={id}
@@ -480,10 +447,7 @@ onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
                   >
                     {zipFile ? (
                       <>
-                        <CheckCircle
-                          size={24}
-                          className="text-[var(--color-success)] mx-auto mb-2"
-                        />
+                        <CheckCircle size={24} className="text-[var(--color-success)] mx-auto mb-2" />
                         <p className="text-sm text-[var(--color-success)] font-medium">
                           {zipFile.name}
                         </p>
@@ -502,10 +466,7 @@ onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
                       </>
                     ) : (
                       <>
-                        <Upload
-                          size={24}
-                          className="text-[var(--color-muted)] mx-auto mb-2"
-                        />
+                        <Upload size={24} className="text-[var(--color-muted)] mx-auto mb-2" />
                         <p className="text-sm text-[var(--color-text)] mb-1">
                           Drop your ZIP file here
                         </p>
@@ -519,10 +480,7 @@ onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
               )}
             </Card>
 
-            {/* Size / credit-cost estimate — shown before submit, per the
-                "show estimate before submit" requirement. Never blocks
-                typing/uploading; only appears once we have something to
-                estimate from. */}
+            {/* Size / credit-cost estimate – only visible when estimation is running or finished */}
             {(estimating || sizeEstimate) && (
               <Card className="p-4">
                 {estimating ? (
@@ -568,6 +526,7 @@ onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
               </Card>
             )}
 
+            {/* Submit button – disabled until size estimation complete, and during submission */}
             <div className="flex gap-3">
               <Button type="button" variant="ghost" onClick={() => setStep(1)}>
                 ← Back
@@ -576,13 +535,20 @@ onClick={() => navigate(`/projects/${projectIdRef.current}`)}>
                 type="submit"
                 loading={loading}
                 className="flex-1"
-                disabled={!!sizeEstimate && !sizeEstimate.unlimited && !sizeEstimate.canAfford}
+                disabled={
+                  loading ||                          // already submitting
+                  estimating ||                       // still calculating size
+                  !sizeEstimate ||                    // no estimate yet
+                  (!sizeEstimate.unlimited && !sizeEstimate.canAfford) // can't afford
+                }
               >
                 {loading
-                  ? "Analyzing Code..."
-                  : sizeEstimate && !sizeEstimate.unlimited
-                    ? `Submit for Evaluation (${sizeEstimate.creditsCost} credit${sizeEstimate.creditsCost > 1 ? "s" : ""})`
-                    : "Submit for Evaluation"}
+                  ? "Submitting..."                  // ✅ changed from "Analyzing Code..." to avoid confusion
+                  : estimating
+                    ? "Calculating project size…"
+                    : sizeEstimate && !sizeEstimate.unlimited
+                      ? `Submit for Evaluation (${sizeEstimate.creditsCost} credit${sizeEstimate.creditsCost > 1 ? "s" : ""})`
+                      : "Submit for Evaluation"}
               </Button>
             </div>
           </form>

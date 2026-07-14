@@ -1,11 +1,23 @@
 import { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 interface ModalProps { open: boolean; onClose: () => void; title?: string; children: ReactNode; className?: string; size?: 'sm' | 'md' | 'lg' | 'xl' }
 export function Modal({ open, onClose, title, children, className, size = 'md' }: ModalProps) {
   const sizes = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg', xl: 'max-w-2xl' }
-  return (
+  // FIX (black-screen bug): this used to render its "fixed inset-0" backdrop
+  // directly in the component tree. Every page is wrapped in <PageWrapper>,
+  // a framer-motion `motion.div` that animates `y` via an inline CSS
+  // `transform`. Any ancestor with a `transform` other than `none` becomes
+  // the containing block for `position: fixed` descendants — so this modal
+  // was being sized/positioned relative to PageWrapper's box instead of the
+  // real viewport, rendering as a small black rectangle pinned to the
+  // top-left instead of a full-screen dark backdrop (e.g. InterstitialAdModal
+  // on the project submit page). Portaling straight to document.body escapes
+  // that transformed ancestor entirely, exactly like the fix already applied
+  // in CertificateCard.tsx's preview modal.
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -21,6 +33,7 @@ export function Modal({ open, onClose, title, children, className, size = 'md' }
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
