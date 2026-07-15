@@ -44,6 +44,12 @@ function notifyListeners(b: CreditBalance) {
   _listeners.forEach(fn => fn(b))
 }
 
+// Push a balance we already have from an API response (e.g. /payments/verify)
+// straight into the shared cache, without a round trip to /credits.
+export function notifyCreditsUpdate(balance: CreditBalance) {
+  notifyListeners(balance)
+}
+
 export async function refreshCredits(): Promise<CreditBalance | null> {
   try {
     const { data } = await api.get('/credits')

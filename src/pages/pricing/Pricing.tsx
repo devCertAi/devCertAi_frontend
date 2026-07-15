@@ -8,6 +8,7 @@ import { Footer } from '@/components/layout/Footer'
 import { PRICING_PLANS } from '@/lib/constants'
 import api from '@/services/api'
 import toast from 'react-hot-toast'
+import { refreshCredits, notifyCreditsUpdate } from '@/hooks/useCredits'
 
 export default function Pricing() {
   const { user, isAuthenticated } = useAuthStore()
@@ -37,24 +38,41 @@ export default function Pricing() {
         toast.error('Payment gateway failed to load')
         return
       }
-      const { data } = await api.post('/payments/create-order', { plan: planId })
+      const { data: orderRes } = await api.post('/payments/create-order', { plan: planId })
+      const order = orderRes.data // unwrap ApiResponse — matches convention used elsewhere (e.g. Submit.tsx)
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: data.amount,
-        currency: 'INR',
-        order_id: data.orderId,
+        key: order.razorpayKeyId,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.orderId,
         name: 'Proeva',
         description: `${planId} plan`,
         prefill: { name: user?.name, email: user?.email },
         theme: { color: 'var(--color-primary)' },
         handler: async (response: any) => {
           try {
-            await api.post('/payments/verify', response)
+            const { data: verifyRes } = await api.post('/payments/verify', response)
+            // Push the just-verified balance straight into the credits cache so
+            // Dashboard doesn't show a stale (pre-payment) count on redirect.
+            const credits = verifyRes?.data?.credits
+            if (credits) notifyCreditsUpdate(credits)
+            else await refreshCredits()
             toast.success('🎉 Credits added to your account!')
             navigate('/dashboard')
           } catch {
-            toast.error('Payment verification failed')
+            // Payment succeeded on Razorpay's side but our /verify call failed
+            // (bad signature, network drop, etc). Do NOT touch credits here —
+            // the webhook is the fallback that will apply them once Razorpay
+            // confirms capture server-to-server. Just tell the user.
+            toast.error('Payment verification failed. If money was deducted, credits will be added automatically within a few minutes — contact support if not.')
           }
+        },
+        modal: {
+          // Fires if the user closes the checkout without paying / payment fails.
+          // No credit changes should ever happen on this path.
+          ondismiss: () => {
+            setLoading(null)
+          },
         },
       }
       new (window as any).Razorpay(options).open()
