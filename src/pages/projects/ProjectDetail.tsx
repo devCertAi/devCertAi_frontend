@@ -115,6 +115,10 @@ export default function ProjectDetail() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("overview");
   const [reEvaluating, setReEvaluating] = useState(false);
+  // Shared across both "Download Certificate" buttons (Actions card + Certificate
+  // tab) since they always operate on the same project's single certificate —
+  // no need to key by id here, unlike a list view with multiple certificates.
+  const [downloadingCert, setDownloadingCert] = useState(false);
   const { user } = useAuthStore();
   const isPremium = user?.isPremium ?? false;
   const { refetch: refetchCredits } = useCredits();
@@ -171,7 +175,25 @@ export default function ProjectDetail() {
     }
   };
 
-  
+  const handleDownloadCertificate = async () => {
+    if (!project?.certificate) return;
+    setDownloadingCert(true);
+    try {
+      const res = await api.get(`/certificates/${project.certificate.id}/download`, { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `proeva-${project.certificate.verificationId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      toast.error("Couldn't download certificate. Please try again.");
+    } finally {
+      setDownloadingCert(false);
+    }
+  };
+
   const certGraceAttempts = useRef(0);
   useEffect(() => {
     if (!project) return;
@@ -205,6 +227,7 @@ export default function ProjectDetail() {
         </div>
       </PageWrapper>
     );
+
 let evalData: any = project.evaluationReport || {};
 if (typeof evalData === "string") {
   try { evalData = JSON.parse(evalData); } catch { evalData = {}; }
@@ -573,14 +596,14 @@ const tabs: { id: Tab; label: string }[] = [
                     <h3 className="text-sm font-medium text-[var(--color-text)] mb-3">Actions</h3>
                     <div className="space-y-2">
                       {project.certificate && (
-                        <Button variant="secondary" className="w-full" size="sm"
-                          onClick={async () => {
-                            const res = await api.get(`/certificates/${project.certificate!.id}/download`, { responseType: "blob" });
-                            const url = URL.createObjectURL(res.data);
-                            const a = document.createElement("a"); a.href = url;
-                            a.download = `proeva-${project.certificate!.verificationId}.pdf`; a.click();
-                            URL.revokeObjectURL(url);
-                          }}>
+                        <Button
+                          variant="secondary"
+                          className="w-full"
+                          size="sm"
+                          loading={downloadingCert}
+                          disabled={downloadingCert}
+                          onClick={handleDownloadCertificate}
+                        >
                           <Download size={14} /> Download Certificate
                         </Button>
                       )}
@@ -811,13 +834,11 @@ const tabs: { id: Tab; label: string }[] = [
                     {report.headline && (
                       <p className="text-sm text-[var(--color-text)] bg-[var(--color-surface)] rounded-xl px-4 py-3 mb-6 max-w-lg mx-auto">{report.headline}</p>
                     )}
-                    <Button onClick={async () => {
-                      const res = await api.get(`/certificates/${project.certificate!.id}/download`, { responseType: "blob" });
-                      const url = URL.createObjectURL(res.data);
-                      const a = document.createElement("a"); a.href = url;
-                      a.download = `proeva-${project.certificate!.verificationId}.pdf`; a.click();
-                      URL.revokeObjectURL(url);
-                    }}>
+                    <Button
+                      loading={downloadingCert}
+                      disabled={downloadingCert}
+                      onClick={handleDownloadCertificate}
+                    >
                       <Download size={15} /> Download PDF Certificate
                     </Button>
                   </>
