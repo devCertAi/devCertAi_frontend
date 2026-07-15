@@ -51,7 +51,17 @@ export default function Pricing() {
         theme: { color: 'var(--color-primary)' },
         handler: async (response: any) => {
           try {
-            const { data: verifyRes } = await api.post('/payments/verify', response)
+            // Razorpay's callback gives snake_case keys
+            // (razorpay_order_id / razorpay_payment_id / razorpay_signature),
+            // but the backend's verifyPaymentSchema expects camelCase.
+            // Sending `response` as-is means every field is undefined on the
+            // server, so Zod's min(1) check fails -> 400 "Validation failed"
+            // on EVERY real payment, even successful ones.
+            const { data: verifyRes } = await api.post('/payments/verify', {
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            })
             // Push the just-verified balance straight into the credits cache so
             // Dashboard doesn't show a stale (pre-payment) count on redirect.
             const credits = verifyRes?.data?.credits
