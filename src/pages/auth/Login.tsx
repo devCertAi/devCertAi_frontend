@@ -184,8 +184,8 @@ export default function Login() {
           >
             Sign up as developer
           </Link>
-          {/* {' · '} */}
-          {/* <Link to="/auth/register-recruiter">Hire with Proeva</Link> */}
+          {' · '}
+          <Link to="/auth/register-recruiter">Hire with Proeva</Link>
         </p>
       </motion.div>
     </div>
