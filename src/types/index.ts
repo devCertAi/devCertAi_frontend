@@ -30,6 +30,65 @@ export interface Project {
   certificate?: Certificate
 }
 
+export interface ToolResults {
+  domain?: {
+    category: string
+    confidence: number
+    detectionMethod?: string
+    languageBreakdown?: Record<string, number>
+  }
+  lint?: {
+    tool: string | null
+    errorCount: number
+    warningCount: number
+    issues: { file: string; line: number; rule: string; message: string; severity: string }[]
+  }
+  security?: {
+    tool: string
+    tools?: string[]
+    findings: { file: string; line: number; ruleId: string; severity: string; message: string; tool?: string }[]
+  }
+  secrets?: {
+    tool: string
+    found: { file: string; line: number; type: string }[]
+  }
+  dependencies?: {
+    tool: string
+    vulnerabilities: { package: string; version: string; severity: string; cve: string }[]
+  }
+  duplication?: {
+    tool: string
+    duplicationPercent: number | null
+    clones: { files: string[]; lines: number }[]
+  }
+  complexity?: {
+    tool: string
+    avgCyclomaticComplexity: number | null
+    highComplexityFunctions: { file: string; function: string; ccn: number }[]
+  }
+  testCoverage?: {
+    hasTests: boolean
+    coveragePercent: number | null
+  }
+  dependencyHealth?: {
+    tool: string
+    unused: string[]
+    missing: { package: string; usedIn: string[] }[]
+  }
+  circularDependencies?: {
+    tool: string
+    found: { chain: string[]; length: number }[]
+  }
+  meta?: {
+    toolsRun: string[]
+    toolsFailed: string[]
+    filesScanned: number
+    linesScanned: number
+    scanDurationMs: number
+    skipped?: string
+  }
+}
+
 export interface EvaluationReport {
   nextSteps: any
   recruiterSummary: any
@@ -51,6 +110,14 @@ export interface EvaluationReport {
   summary: string
   plagiarismRisk: 'low' | 'medium' | 'high'
   estimatedExperience: string
+  // Verified static-analysis data + trust metadata (see toolAnalysis pipeline)
+  toolResults?: ToolResults
+  findingsSource?: Record<string, string>
+  toolsUsed?: string[]
+  // Raw scanned file list + detected stack, used to render the Code Structure tree
+  fileTree?: string[]
+  techStack?: string[]
+  methodology?: string
 }
 
 export interface CategoryScore {
