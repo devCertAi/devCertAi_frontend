@@ -16,6 +16,18 @@ import { Skill } from '@/types'
 
 const EXAM_DOMAINS = ['Frontend', 'Backend', 'Full Stack', 'Mobile', 'Data Science', 'DevOps', 'Programming Languages', 'Blockchain', 'AI/ML']
 
+const DOMAIN_CATEGORIES: Record<string, string[]> = {
+  Frontend: ['React', 'Angular', 'Vue.js', 'JavaScript', 'HTML & CSS', 'General Frontend'],
+  Backend: ['Node.js', 'Python', 'Java Spring Boot', 'Go', 'Databases', 'API Design', 'Security', 'System Design', 'General Backend'],
+  'Full Stack': ['React', 'Next.js', 'Node.js', 'JavaScript', 'HTML & CSS', 'Angular', 'API Design', 'Databases', 'DevOps Basics', 'Security', 'System Design', 'Version Control', 'General Backend', 'General Full Stack', 'Web Fundamentals'],
+  Mobile: ['React Native', 'Flutter', 'Android', 'iOS', 'Kotlin', 'Native Development', 'UI/UX', 'General Mobile'],
+  'Data Science': ['Machine Learning', 'Deep Learning', 'Statistics', 'Python & Pandas', 'General Data Science'],
+  DevOps: ['Docker & Kubernetes', 'CI/CD', 'Cloud (AWS/Azure/GCP)', 'Monitoring & Security', 'General DevOps'],
+  'Programming Languages': ['JavaScript', 'Python', 'Java', 'C/C++', 'Go', 'General Programming'],
+  Blockchain: ['Solidity', 'Web3', 'Smart Contracts', 'General Blockchain'],
+  'AI/ML': ['Machine Learning', 'Deep Learning', 'NLP', 'Computer Vision', 'General AI/ML']
+}
+
 // ─── Toggle ───────────────────────────────────────────────────────────────────
 function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label?: string }) {
   return (
@@ -74,8 +86,11 @@ export default function CreatePosting() {
   const [examPhase1, setExamPhase1] = useState(true)
   const [examPhase2, setExamPhase2] = useState(false)
   const [examDomain, setExamDomain] = useState('Full Stack')
+  const [examCategories, setExamCategories] = useState<string[]>([])
+  const [examDifficulty, setExamDifficulty] = useState<string>('mixed')
   const [examDurationMin, setExamDurationMin] = useState(30)
   const [examWindowHours, setExamWindowHours] = useState(48)
+  const [applicationDeadline, setApplicationDeadline] = useState('')
 
   // Pipeline mode
   const [manualMode, setManualMode] = useState(false)
@@ -150,8 +165,11 @@ export default function CreatePosting() {
         examPhase1: examEnabled ? examPhase1 : false,
         examPhase2: examEnabled && examPhase1 ? examPhase2 : false,
         examDomain: examEnabled ? examDomain : undefined,
+        examCategories: examEnabled && examCategories.length > 0 ? examCategories : undefined,
+        examDifficulty: examEnabled ? examDifficulty : undefined,
         examDurationMin: examEnabled ? examDurationMin : undefined,
         examWindowHours: examEnabled ? examWindowHours : undefined,
+        applicationDeadline: applicationDeadline ? new Date(applicationDeadline).toISOString() : undefined,
 
         // Pipeline
         manualMode,
@@ -407,11 +425,51 @@ export default function CreatePosting() {
               <Select
                 label="Exam Domain"
                 value={examDomain}
-                onChange={e => setExamDomain(e.target.value)}
-                hint="Questions are generated specifically for this domain"
+                onChange={e => { setExamDomain(e.target.value); setExamCategories([]) }}
+                hint="Questions are filtered by this domain"
               >
                 {EXAM_DOMAINS.map(d => <option key={d} value={d}>{d}</option>)}
               </Select>
+
+              {/* Categories — multi-select chips */}
+              {DOMAIN_CATEGORIES[examDomain] && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Categories</label>
+                  <p className="text-xs text-[var(--color-muted)] mb-2">Select which topics to include in the exam</p>
+                  <div className="flex flex-wrap gap-2">
+                    {DOMAIN_CATEGORIES[examDomain].map(cat => {
+                      const selected = examCategories.includes(cat)
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setExamCategories(prev => selected ? prev.filter(c => c !== cat) : [...prev, cat])}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${selected ? 'border-[var(--color-primary)] bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] text-[var(--color-primary)]' : 'border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-primary)]'}`}
+                        >
+                          {cat}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Difficulty */}
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Difficulty</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[{ value: 'mixed', label: 'Mixed' }, { value: 'easy', label: 'Easy' }, { value: 'medium', label: 'Medium' }, { value: 'hard', label: 'Hard' }].map(d => (
+                    <button
+                      key={d.value}
+                      type="button"
+                      onClick={() => setExamDifficulty(d.value)}
+                      className={`p-2 rounded-xl border text-xs font-medium text-center transition-colors ${examDifficulty === d.value ? 'border-[var(--color-primary)] bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)] text-[var(--color-primary)]' : 'border-[var(--color-border)] text-[var(--color-muted)]'}`}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* Phase toggles */}
               <div className="space-y-3">
@@ -457,7 +515,31 @@ export default function CreatePosting() {
           )}
         </Card>
 
-        {/* ── 5. Pipeline Mode ─────────────────────────────────────────────── */}
+        {/* ── 5. Application Deadline ────────────────────────────────────── */}
+        <Card className="p-6 space-y-4 mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--color-text)]">Application Deadline</h3>
+            <p className="text-xs text-[var(--color-muted)] mt-0.5">
+              Optional. Candidates cannot apply after this date. Pipeline processing starts after the deadline.
+            </p>
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Calendar size={13} className="text-[var(--color-muted)]" />
+              <label className="text-sm font-medium text-[var(--color-text)]">Deadline</label>
+            </div>
+            <input
+              type="datetime-local"
+              min={minDeadline}
+              value={applicationDeadline}
+              onChange={e => setApplicationDeadline(e.target.value)}
+              className="w-full bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-4 py-2.5 text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
+            />
+            <p className="text-xs text-[var(--color-muted)] mt-1">Leave empty for no deadline — applications are processed immediately.</p>
+          </div>
+        </Card>
+
+        {/* ── 6. Pipeline Mode ─────────────────────────────────────────────── */}
         <Card className="p-6 space-y-4 mb-4">
           <div className="flex items-center justify-between">
             <div>
