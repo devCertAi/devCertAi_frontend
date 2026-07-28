@@ -33,6 +33,7 @@ import { StageTracker } from '@/components/applications/StageTracker'
 import { Application } from '@/types'
 import { formatRelativeTime } from '@/lib/utils'
 import api from '@/services/api'
+import { getSocket } from '@/services/socket'
 
 interface ProjectInfo {
   id: string
@@ -79,6 +80,19 @@ export default function ApplicationDetail() {
   }, [id])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const socket = getSocket()
+    const handlePostingUpdated = (data: { jobPostingId: string }) => {
+      if (application && data.jobPostingId === application.jobPostingId) {
+        load()
+      }
+    }
+    socket.on('posting:updated', handlePostingUpdated)
+    return () => {
+      socket.off('posting:updated', handlePostingUpdated)
+    }
+  }, [application, load])
 
   const handleSubmitAssignment = async () => {
     if (!githubUrl && !liveUrl && !zipFile) {
@@ -193,7 +207,7 @@ export default function ApplicationDetail() {
         )}
 
         {/* Assignment submission */}
-        {hasAssignment && canSubmitAssignment && (
+        {canSubmitAssignment && (
           <Card className="p-5 mb-6">
             <h3 className="text-sm font-semibold text-[var(--color-text)] mb-1 flex items-center gap-2">
               <FileText size={16} /> Submit your assignment
@@ -256,7 +270,7 @@ export default function ApplicationDetail() {
           </Card>
         )}
 
-        {hasAssignment && project && (
+        {project && (
           <Card className="p-5 mb-6">
             <h3 className="text-sm font-semibold text-[var(--color-text)] mb-2 flex items-center gap-2">
               <FileText size={16} /> Your submission

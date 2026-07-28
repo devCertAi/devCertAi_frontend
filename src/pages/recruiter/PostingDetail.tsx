@@ -18,6 +18,7 @@ import {
   Eye,
   Lock,
   Clock,
+  Calendar,
 } from "lucide-react";
 import {
   BarChart,
@@ -36,10 +37,13 @@ import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Spinner } from "@/components/ui/Spinner";
 import { Progress } from "@/components/ui/Progress";
+import { DateTimeInput } from "@/components/ui/DateTimeInput";
+import { DeadlineDisplay } from "@/components/ui/DeadlineDisplay";
 import { PageWrapper } from "@/components/layout/PageWrapper";
 import api from "@/services/api";
 import { Application, JobPosting } from "@/types";
 import { formatDate } from "@/lib/utils";
+import { getSocket } from "@/services/socket";
 
 const STAGE_LABELS: Record<string, string> = {
   applied: "Applied",
@@ -79,11 +83,19 @@ export default function PostingDetail() {
   const [loading, setLoading] = useState(true);
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [ranking, setRanking] = useState(false);
+  const [showDeadlineModal, setShowDeadlineModal] = useState(false);
+  const [deadlineForm, setDeadlineForm] = useState({ applicationDeadline: '', assignmentDeadlineDate: '' });
+  const [savingDeadlines, setSavingDeadlines] = useState(false);
 
   const loadPosting = useCallback(() => {
     api.get(`/recruiter/postings/${id}`).then(({ data }) => {
-      setPosting(data.data.posting);
+      const p = data.data.posting;
+      setPosting(p);
       setStageCounts(data.data.stageCounts);
+      setDeadlineForm({
+        applicationDeadline: p.applicationDeadline || null,
+        assignmentDeadlineDate: p.assignmentDeadlineDate || null,
+      });
     });
     api
       .get(`/recruiter/postings/${id}/stats`)
@@ -120,6 +132,35 @@ export default function PostingDetail() {
     loadApplications(1);
   }, [loadApplications]);
 
+  useEffect(() => {
+    const socket = getSocket();
+    const handlePostingUpdated = (data: { jobPostingId: string }) => {
+      if (data.jobPostingId === id) {
+        loadPosting();
+        loadApplications(1);
+      }
+    };
+    const handleApplicationUpdated = (data: { applicationId: string }) => {
+      loadApplications(1);
+    };
+    const handleApplicationReceived = (data: { applicationId: string; jobPostingId: string }) => {
+      if (data.jobPostingId === id) {
+        loadPosting();
+        loadApplications(1);
+      }
+    };
+    
+    socket.on("posting:updated", handlePostingUpdated);
+    socket.on("application:updated", handleApplicationUpdated);
+    socket.on("application:received", handleApplicationReceived);
+    
+    return () => {
+      socket.off("posting:updated", handlePostingUpdated);
+      socket.off("application:updated", handleApplicationUpdated);
+      socket.off("application:received", handleApplicationReceived);
+    };
+  }, [id, loadPosting, loadApplications]);
+
   const triggerRanking = async () => {
     setRanking(true);
     try {
@@ -138,6 +179,38 @@ export default function PostingDetail() {
       `${window.location.origin}/apply/${(posting as any).applyLinkSlug}`,
     );
     toast.success("Apply link copied");
+  };
+
+  const saveDeadlines = async () => {
+    setSavingDeadlines(true);
+    try {
+      const payload: any = {};
+      
+      // Only include fields that were actually changed
+      if (deadlineForm.applicationDeadline !== (posting as any).applicationDeadline) {
+        payload.applicationDeadline = deadlineForm.applicationDeadline || null;
+      }
+      if (deadlineForm.assignmentDeadlineDate !== (posting as any).assignmentDeadlineDate) {
+        payload.assignmentDeadlineDate = deadlineForm.assignmentDeadlineDate || null;
+      }
+      
+      // Validate that at least one field is being changed
+      if (Object.keys(payload).length === 0) {
+        toast.error('No changes detected');
+        setSavingDeadlines(false);
+        return;
+      }
+      
+      await api.patch(`/recruiter/postings/${id}`, payload);
+      toast.success("Deadlines updated successfully");
+      setShowDeadlineModal(false);
+      loadPosting();
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.errors?.[0]?.message || err?.response?.data?.message || "Failed to update deadlines";
+      toast.error(errorMsg);
+    } finally {
+      setSavingDeadlines(false);
+    }
   };
 
   if (!posting) {
@@ -202,6 +275,9 @@ export default function PostingDetail() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => setShowDeadlineModal(true)}>
+              <Calendar size={14} /> Edit Deadlines
+            </Button>
             {posting.status === "active" && (
               <Button variant="outline" onClick={copyLink}>
                 <Copy size={14} /> Apply Link
@@ -573,6 +649,36 @@ export default function PostingDetail() {
           )}
         </Card>
       </div>
+
+      {/* Edit Deadlines Modal */}
+      {showDeadlineModal && (
+        <Modal open onClose={() => setShowDeadlineModal(false)} title="Edit Deadlines" size="sm">
+          <div className="space-y-5">
+            <DateTimeInput
+              label="Application Deadline"
+              icon={Calendar}
+              value={deadlineForm.applicationDeadline}
+              onChange={(iso: string | null) => setDeadlineForm(f => ({ ...f, applicationDeadline: iso || '' }))}
+              hint="Candidates cannot apply after this date. Leave empty for no deadline."
+            />
+            <DateTimeInput
+              label="Assignment Submission Deadline"
+              icon={Clock}
+              value={deadlineForm.assignmentDeadlineDate}
+              onChange={(iso: string | null) => setDeadlineForm(f => ({ ...f, assignmentDeadlineDate: iso || '' }))}
+              hint="Candidates must submit their assignment by this date."
+            />
+            <div className="flex gap-2 pt-1">
+              <Button onClick={saveDeadlines} loading={savingDeadlines}>
+                Save Deadlines
+              </Button>
+              <Button variant="ghost" onClick={() => setShowDeadlineModal(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {selectedAppId && (
         <CandidateDrawer

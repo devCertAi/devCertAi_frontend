@@ -129,32 +129,30 @@ export function Navbar({ hasSidebar, sidebarOpen, onMenuClick }: NavbarProps) {
                   <CreditWidget compact className="flex" />
                 )}
 
-                {!isRecruiter && !isAdmin && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowNotifs(!showNotifs)}
-                      className="relative p-2 rounded-lg transition-colors hover:bg-[var(--color-surface2)]"
-                      style={{ color: "var(--color-muted)" }}
-                    >
-                      <Bell size={18} />
-                      {unreadCount > 0 && (
-                        <span
-                          className="absolute top-1 right-1 w-4 h-4 rounded-full text-[10px] text-[var(--color-inverse)] flex items-center justify-center font-medium"
-                          style={{ background: "var(--color-primary)" }}
-                        >
-                          {unreadCount > 9 ? "9+" : unreadCount}
-                        </span>
-                      )}
-                    </button>
-                    <AnimatePresence>
-                      {showNotifs && (
-                        <NotificationPanel
-                          onClose={() => setShowNotifs(false)}
-                        />
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowNotifs(!showNotifs)}
+                    className="relative p-2 rounded-lg transition-colors hover:bg-[var(--color-surface2)]"
+                    style={{ color: "var(--color-muted)" }}
+                  >
+                    <Bell size={18} />
+                    {unreadCount > 0 && (
+                      <span
+                        className="absolute top-1 right-1 w-4 h-4 rounded-full text-[10px] text-[var(--color-inverse)] flex items-center justify-center font-medium"
+                        style={{ background: "var(--color-primary)" }}
+                      >
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                  <AnimatePresence>
+                    {showNotifs && (
+                      <NotificationPanel
+                        onClose={() => setShowNotifs(false)}
+                      />
+                    )}
+                  </AnimatePresence>
+                </div>
 
                 {/* User menu */}
                 <div className="relative">

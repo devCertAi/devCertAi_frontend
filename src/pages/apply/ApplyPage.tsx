@@ -16,7 +16,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   Building2, Briefcase, CheckCircle2, AlertCircle, ArrowRight, Upload,
   ChevronDown, ChevronUp, User, GraduationCap, Wrench, FileText, Globe,
-  MapPin, Phone, Mail, Pencil, Loader2, Lock, UserPlus, ClipboardList,
+  MapPin, Phone, Mail, Pencil, Lock, UserPlus, ClipboardList,
   Clock, Star, XCircle,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -26,6 +26,8 @@ import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { useAuthStore } from '@/store/authStore'
 import api from '@/services/api'
+import { getSocket } from '@/services/socket'
+import { formatDateTimeFull } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +46,8 @@ interface Posting {
   location?: string
   stipend?: string
   duration?: string
+  applicationDeadline?: string | null
+  assignmentDeadlineDate?: string | null
 }
 
 interface CompletenessSection {
@@ -178,6 +182,24 @@ function GuestView({ posting, slug }: { posting: Posting; slug: string }) {
             {posting.examEnabled && <Badge variant="info" className="text-xs">Technical assessment</Badge>}
           </div>
 
+          {posting.applicationDeadline && (
+            <div className="flex items-center gap-2 mb-3 p-2.5 rounded-lg bg-[color-mix(in_srgb,var(--color-warning)_8%,transparent)] border border-[color-mix(in_srgb,var(--color-warning)_20%,transparent)]">
+              <Clock size={14} style={{ color: 'var(--color-warning)' }} />
+              <span className="text-xs font-semibold text-[var(--color-warning)]">
+                Application deadline: {formatDateTimeFull(posting.applicationDeadline)}
+              </span>
+            </div>
+          )}
+
+          {posting.assignmentDeadlineDate && (
+            <div className="flex items-center gap-2 mb-3 p-2.5 rounded-lg bg-[color-mix(in_srgb,var(--color-info)_8%,transparent)] border border-[color-mix(in_srgb,var(--color-info)_20%,transparent)]">
+              <FileText size={14} style={{ color: 'var(--color-info)' }} />
+              <span className="text-xs font-semibold text-[var(--color-info)]">
+                Assignment deadline: {formatDateTimeFull(posting.assignmentDeadlineDate)}
+              </span>
+            </div>
+          )}
+
           {posting.description && (
             <p className="text-sm text-[var(--color-muted)] leading-relaxed line-clamp-4">{posting.description}</p>
           )}
@@ -262,9 +284,9 @@ function ProfileGate({ completeness, posting }: { completeness: Completeness; po
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-semibold text-[var(--color-text)]">Profile completeness</span>
             <span className="text-sm font-bold" style={{
-              color: completeness.percentage >= 70 ? 'var(--color-success)' : 'var(--color-warning)'
+              color: completeness.percentage >= 50 ? 'var(--color-success)' : 'var(--color-warning)'
             }}>
-              {completeness.percentage}% / 70% required
+              {completeness.percentage}% / 50% required
             </span>
           </div>
           <CompletenessBar pct={completeness.percentage} />
@@ -512,6 +534,21 @@ function ApplyForm({ data, slug }: { data: PreflightData; slug: string }) {
           </div>
         </div>
 
+        {/* Deadline banner */}
+        {posting.applicationDeadline && (
+          <Card className="p-4 mb-4" style={{ borderColor: 'color-mix(in srgb, var(--color-warning) 30%, transparent)' }}>
+            <div className="flex items-center gap-2">
+              <Clock size={16} style={{ color: 'var(--color-warning)' }} />
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-warning)]">Application deadline</p>
+                <p className="text-xs text-[var(--color-muted)]">
+                  {new Date(posting.applicationDeadline).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Profile match card */}
         <Card className="p-5 mb-4" style={{ borderColor: completeness.isComplete ? 'color-mix(in srgb, var(--color-success) 25%, transparent)' : undefined }}>
           <div className="flex items-center justify-between mb-3">
@@ -752,11 +789,33 @@ export default function ApplyPage() {
     setPreflightLoading(true)
     api.get(`/apply/${slug}/preflight`)
       .then(r => setPreflight(r.data.data))
-      .catch(() => {})
+      .catch(() => {
+        // 401 means token is not a candidate token (e.g. recruiter logged in)
+        // Fall through to public posting view
+        setPreflight(null)
+      })
       .finally(() => setPreflightLoading(false))
   }, [slug, isAuthenticated])
 
   useEffect(() => { loadPreflight() }, [loadPreflight])
+
+  useEffect(() => {
+    const socket = getSocket()
+    const handlePostingUpdated = (data: { jobPostingId: string }) => {
+      if (slug) {
+        api.get(`/apply/${slug}`)
+          .then(r => setPublicPosting(r.data.data.posting))
+          .catch(() => {})
+      }
+      if (isAuthenticated) {
+        loadPreflight()
+      }
+    }
+    socket.on('posting:updated', handlePostingUpdated)
+    return () => {
+      socket.off('posting:updated', handlePostingUpdated)
+    }
+  }, [slug, isAuthenticated, loadPreflight])
 
   // Public posting info doesn't depend on auth at all — render it (or the
   // not-found state) the moment it arrives, instead of waiting on session
@@ -795,12 +854,17 @@ export default function ApplyPage() {
   }
 
   // Loading preflight
-  if (preflightLoading || !preflight) {
+  if (preflightLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Spinner className="w-8 h-8 text-[var(--color-primary)]" />
       </div>
     )
+  }
+
+  // Preflight failed (e.g. recruiter token) → show public posting view
+  if (!preflight) {
+    return <GuestView posting={publicPosting} slug={slug!} />
   }
 
   // Already applied
