@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import './index.css'
 import { GoogleOAuthProvider } from '@react-oauth/google'
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
 // ── DOM safety patch ──────────────────────────────────────────────
 // Devbot (and other playful UI bits) occasionally mutate text nodes
@@ -35,10 +36,12 @@ const patchNode = <K extends 'removeChild' | 'insertBefore'>(
 patchNode(Node.prototype, 'removeChild')
 patchNode(Node.prototype, 'insertBefore')
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const root = ReactDOM.createRoot(document.getElementById('root')!)
+
+root.render(
   <BrowserRouter>
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-      <App />
-    </GoogleOAuthProvider>
+    {googleClientId
+      ? <GoogleOAuthProvider clientId={googleClientId}><App /></GoogleOAuthProvider>
+      : <App />}
   </BrowserRouter>
 )
