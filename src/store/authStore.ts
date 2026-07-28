@@ -63,6 +63,8 @@ function msUntilRefresh(token: string): number {
 // count) straight from the server on mount, so nothing is lost except the
 // need to re-authenticate.
 function redirectToLogin(role: Role | null) {
+  const pathname = window.location.pathname;
+  if (["/", "/auth/login", "/auth/register", "/auth/recruiter-login", "/auth/register-recruiter"].some(r => pathname.startsWith(r))) return;
   const returnTo = window.location.pathname + window.location.search;
   try { sessionStorage.setItem("sessionExpiredNotice", "1"); } catch {}
   const loginPath = role === "recruiter" ? "/auth/recruiter-login" : "/auth/login";
@@ -319,6 +321,8 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;
   const token = localStorage.getItem("accessToken");
   if (!token) return;
+  const pathname = window.location.pathname;
+  if (["/", "/auth/login", "/auth/register", "/auth/recruiter-login", "/auth/register-recruiter"].some(r => pathname.startsWith(r))) return;
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
     if (!payload.exp) return;

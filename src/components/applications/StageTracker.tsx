@@ -30,11 +30,14 @@ export function StageTracker({ application }: StageTrackerProps) {
       .catch(() => {})
   }, [application.id])
 
+  const assignmentStages = ['assignment_sent', 'assignment_submitted']
+  const showAssignment = hasAssignment || assignmentStages.includes(application.stage)
+
   const steps: Step[] = [
     { key: 'applied', label: 'Applied', stages: ['applied'] },
     { key: 'screened', label: 'Screened', stages: ['screened'] },
   ]
-  if (hasAssignment) {
+  if (showAssignment) {
     steps.push({ key: 'assignment', label: 'Assignment', stages: ['assignment_sent', 'assignment_submitted'] })
     steps.push({ key: 'project_evaluated', label: 'Project Review', stages: ['project_evaluated'] })
   }

@@ -3,12 +3,13 @@ import { useNavigate, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   CheckCircle2, Copy, AlertTriangle, ChevronDown, ChevronUp,
-  Lock, Eye, EyeOff, Calendar, Clock, Wrench, Zap
+  Lock, Eye, Calendar, Clock, Wrench, Zap
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
+import { DateTimeInput } from '@/components/ui/DateTimeInput'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { SkillsInput } from '@/components/profile/SkillsInput'
 import api from '@/services/api'
@@ -66,7 +67,6 @@ export default function CreatePosting() {
 
   // Basics
   const [title, setTitle] = useState('')
-  const [companyName, setCompanyName] = useState('')
   const [description, setDescription] = useState('')
   const [skills, setSkills] = useState<(Skill & { required?: boolean })[]>([])
   const [minExperience, setMinExperience] = useState(0)
@@ -78,7 +78,9 @@ export default function CreatePosting() {
   const [assignmentEnabled, setAssignmentEnabled] = useState(false)
   const [assignmentBrief, setAssignmentBrief] = useState('')
   const [assignmentEvalCriteria, setAssignmentEvalCriteria] = useState('')
-  const [assignmentDeadlineDate, setAssignmentDeadlineDate] = useState('')
+  const [assignmentDeadlineDate, setAssignmentDeadlineDate] = useState<string | null>(() => {
+    return new Date(Date.now() + 7 * 86400000).toISOString()
+  })
   const [showEvalCriteria, setShowEvalCriteria] = useState(false)
 
   // Exam
@@ -90,7 +92,9 @@ export default function CreatePosting() {
   const [examDifficulty, setExamDifficulty] = useState<string>('mixed')
   const [examDurationMin, setExamDurationMin] = useState(30)
   const [examWindowHours, setExamWindowHours] = useState(48)
-  const [applicationDeadline, setApplicationDeadline] = useState('')
+  const [applicationDeadline, setApplicationDeadline] = useState<string | null>(() => {
+    return new Date(Date.now() + 3 * 86400000).toISOString()
+  })
 
   // Pipeline mode
   const [manualMode, setManualMode] = useState(false)
@@ -140,7 +144,6 @@ export default function CreatePosting() {
     try {
       const payload: Record<string, unknown> = {
         title: title.trim(),
-        companyName: companyName.trim() || undefined,
         description: description.trim(),
         requiredSkills: skills.map(s => ({ name: s.name, required: (s as any).required !== false })),
         minExperience,
@@ -157,7 +160,7 @@ export default function CreatePosting() {
           ? assignmentEvalCriteria.trim()
           : undefined,
         assignmentDeadlineDate: assignmentEnabled && assignmentDeadlineDate
-          ? new Date(assignmentDeadlineDate).toISOString()
+          ? assignmentDeadlineDate
           : undefined,
 
         // Exam
@@ -169,7 +172,7 @@ export default function CreatePosting() {
         examDifficulty: examEnabled ? examDifficulty : undefined,
         examDurationMin: examEnabled ? examDurationMin : undefined,
         examWindowHours: examEnabled ? examWindowHours : undefined,
-        applicationDeadline: applicationDeadline ? new Date(applicationDeadline).toISOString() : undefined,
+        applicationDeadline: applicationDeadline || undefined,
 
         // Pipeline
         manualMode,
@@ -263,7 +266,6 @@ export default function CreatePosting() {
         {/* ── 1. Basics ──────────────────────────────────────────────────── */}
         <Section title="Basics">
           <Input label="Job Title *" placeholder="e.g. Senior Full Stack Engineer" value={title} onChange={e => setTitle(e.target.value)} />
-          <Input label="Company Name" placeholder="Defaults to your verified company name" value={companyName} onChange={e => setCompanyName(e.target.value)} />
           <div>
             <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Job Description *</label>
             <textarea
@@ -283,8 +285,8 @@ export default function CreatePosting() {
             <SkillsInput value={skills} onChange={setSkills as any} showRequired placeholder="e.g. React, Node.js, PostgreSQL…" />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Input type="number" min={0} max={40} label="Min experience (years)" value={minExperience} onChange={e => setMinExperience(Number(e.target.value))} />
-            <Input type="number" min={1} max={1000} label="Openings" value={openings} onChange={e => setOpenings(Number(e.target.value))} />
+            <Input type="number" min={0} max={40} label="Min experience (years)" value={minExperience} onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v)) setMinExperience(v) }} />
+            <Input type="number" min={1} max={1000} label="Openings" value={openings} onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 1) setOpenings(v) }} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input
@@ -292,14 +294,14 @@ export default function CreatePosting() {
               label="Rule-score threshold (Stage 1)"
               hint="Below this skill/exp match → auto-rejected, no AI used"
               value={ruleScoreThreshold}
-              onChange={e => setRuleScoreThreshold(Number(e.target.value))}
+              onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v)) setRuleScoreThreshold(v) }}
             />
             <Input
               type="number" min={0} max={100}
               label="AI match threshold (Stage 2)"
               hint="Min AI resume match score to be shortlisted"
               value={aiMatchThreshold}
-              onChange={e => setAiMatchThreshold(Number(e.target.value))}
+              onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v)) setAiMatchThreshold(v) }}
             />
           </div>
           {/* Cutoff mode */}
@@ -323,7 +325,7 @@ export default function CreatePosting() {
                 label="Top % to select"
                 className="mt-3"
                 value={cutoffPercentage}
-                onChange={e => setCutoffPercentage(Number(e.target.value))}
+                onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v)) setCutoffPercentage(v) }}
               />
             )}
           </div>
@@ -391,20 +393,13 @@ export default function CreatePosting() {
               </div>
 
               {/* Deadline */}
-              <div>
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <Calendar size={13} className="text-[var(--color-muted)]" />
-                  <label className="text-sm font-medium text-[var(--color-text)]">Submission Deadline *</label>
-                </div>
-                <input
-                  type="datetime-local"
-                  min={minDeadline}
-                  value={assignmentDeadlineDate}
-                  onChange={e => setAssignmentDeadlineDate(e.target.value)}
-                  className="w-full bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-4 py-2.5 text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
-                />
-                <p className="text-xs text-[var(--color-muted)] mt-1">Must be a future date. Students see this deadline in their dashboard.</p>
-              </div>
+              <DateTimeInput
+                label="Submission Deadline *"
+                icon={Calendar}
+                value={assignmentDeadlineDate}
+                onChange={(iso: string | null) => setAssignmentDeadlineDate(iso)}
+                hint="Must be a future date. Students see this deadline in their dashboard."
+              />
             </div>
           )}
         </Card>
@@ -523,20 +518,13 @@ export default function CreatePosting() {
               Optional. Candidates cannot apply after this date. Pipeline processing starts after the deadline.
             </p>
           </div>
-          <div>
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Calendar size={13} className="text-[var(--color-muted)]" />
-              <label className="text-sm font-medium text-[var(--color-text)]">Deadline</label>
-            </div>
-            <input
-              type="datetime-local"
-              min={minDeadline}
-              value={applicationDeadline}
-              onChange={e => setApplicationDeadline(e.target.value)}
-              className="w-full bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-4 py-2.5 text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
-            />
-            <p className="text-xs text-[var(--color-muted)] mt-1">Leave empty for no deadline — applications are processed immediately.</p>
-          </div>
+          <DateTimeInput
+            label="Deadline"
+            icon={Calendar}
+            value={applicationDeadline}
+            onChange={(iso: string | null) => setApplicationDeadline(iso)}
+            hint="Leave empty for no deadline — applications are processed immediately."
+          />
         </Card>
 
         {/* ── 6. Pipeline Mode ─────────────────────────────────────────────── */}

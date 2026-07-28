@@ -34,56 +34,6 @@ export function useSocket(userId?: string) {
     if (!userId) return
     const socket = getSocket()
 
-    const handleEvalComplete = (data: { title: string; score: number; level: string; projectId: string }) => {
-      const n: Notification = {
-        id: Date.now().toString(),
-        userId,
-        type: 'evaluation_complete',
-        title: 'Evaluation complete!',
-        message: `${data.title} scored ${data.score}/100 (${data.level})`,
-        isRead: false,
-        data,
-        createdAt: new Date().toISOString(),
-      }
-      addNotification(n)
-      toast.success(n.message)
-    }
-
-    const handleExamResult = (data: { score: number; passed: boolean; level: string }) => {
-      const n: Notification = {
-        id: Date.now().toString(),
-        userId,
-        type: 'exam_result',
-        title: data.passed ? '🎉 Exam Passed!' : 'Exam Result',
-        message: `Score: ${data.score}/100 — ${data.level}`,
-        isRead: false,
-        data,
-        createdAt: new Date().toISOString(),
-      }
-      addNotification(n)
-      data.passed ? toast.success(n.message) : toast.error(n.message)
-    }
-
-    const handleCertReady = (data: { title: string }) => {
-      const n: Notification = {
-        id: Date.now().toString(),
-        userId,
-        type: 'certificate_ready',
-        title: '🎓 Certificate Ready!',
-        message: data.title,
-        isRead: false,
-        data,
-        createdAt: new Date().toISOString(),
-      }
-      addNotification(n)
-      toast.success('Your certificate is ready!')
-    }
-
-    // notificationService.create() (used for every pipeline stage update,
-    // selection, rejection, ranking event, and certificate-ready event)
-    // emits a generic 'notification' socket event — see backend/src/
-    // services/notificationService.js `_emit`. This is the single listener
-    // for that event across the whole app.
     const handleGenericNotification = (n: Notification) => {
       addNotification(n)
       if (n.title || n.message) {
@@ -95,15 +45,9 @@ export function useSocket(userId?: string) {
       }
     }
 
-    socket.on('evaluation_complete', handleEvalComplete)
-    socket.on('exam_result', handleExamResult)
-    socket.on('certificate_ready', handleCertReady)
     socket.on('notification', handleGenericNotification)
 
     return () => {
-      socket.off('evaluation_complete', handleEvalComplete)
-      socket.off('exam_result', handleExamResult)
-      socket.off('certificate_ready', handleCertReady)
       socket.off('notification', handleGenericNotification)
     }
   }, [userId, addNotification])

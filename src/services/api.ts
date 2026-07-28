@@ -118,9 +118,14 @@ api.interceptors.response.use(
 
     const isRefreshEndpoint =
       original.url?.includes('/auth/refresh') ||
-      original.url?.includes('/auth/recruiter/refresh')
+      original.url?.includes('/auth/recruiter/refresh') ||
+      original.url?.includes('/auth/logout') ||
+      original.url?.includes('/auth/recruiter/logout')
 
-    if (status !== 401 || original._retry || isRefreshEndpoint) {
+    const isIdentityRoute = ['/', '/auth/login', '/auth/register', '/auth/recruiter-login', '/auth/register-recruiter']
+      .some(r => window.location.pathname.startsWith(r))
+
+    if (status !== 401 || original._retry || isRefreshEndpoint || isIdentityRoute) {
       return Promise.reject(error)
     }
 
@@ -145,16 +150,15 @@ api.interceptors.response.use(
       const newToken = await refreshAccessToken(role)
       original.headers = original.headers ?? {}
       original.headers['Authorization'] = `Bearer ${newToken}`
-      return api(original)
+      const retried = await api(original)
+      return retried
     } catch (refreshError) {
+      const retriedStatus = (refreshError as any)?.response?.status
+      if (retriedStatus === 401 && original._retry) {
+        return Promise.reject(refreshError)
+      }
       clearAccessToken()
       clearUserRole()
-      // Preserve exactly where the person was (e.g. an in-progress exam
-      // attempt) so login can drop them right back there afterwards instead
-      // of losing their place. The exam page itself reloads the attempt
-      // (questions/answers/violations) straight from the server on mount,
-      // so nothing is actually lost server-side — this just avoids the
-      // jarring "kicked out to a blank login page" experience.
       const returnTo = window.location.pathname + window.location.search
       try { sessionStorage.setItem('sessionExpiredNotice', '1') } catch {}
       const loginPath = role === 'recruiter' ? '/auth/recruiter-login' : '/auth/login'

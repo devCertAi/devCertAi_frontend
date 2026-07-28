@@ -167,9 +167,18 @@ export default function App() {
     fetchMe()
       .then(() => {
          const role = useAuthStore.getState().user?.role
-        if (role === 'user') fetchAll()
+        if (role === 'user' || role === 'recruiter') fetchAll()
       })
       .catch(() => {})
+
+    const onFocus = () => {
+      const currentPath = window.location.pathname
+      if (IDENTITY_ENTRY_ROUTES.some(r => currentPath.startsWith(r))) return
+      const r = useAuthStore.getState().user?.role
+      if (r === 'user' || r === 'recruiter') fetchAll()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
   }, [])
 
   return (
@@ -191,6 +200,7 @@ export default function App() {
           {/* Hiring landing — public, no sidebar, shown when "Hire" button clicked */}
 
           <Route path="/recruiting" element={<HiringLanding />} />
+          <Route path="/hiring" element={<HiringLanding />} />
            <Route path="/auth/register-recruiter" element={<RecruiterRegisterOTP />} />
            <Route path="/auth/recruiter-login"    element={<RecruiterLogin />} />
  
